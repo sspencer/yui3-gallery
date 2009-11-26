@@ -1,0 +1,45 @@
+
+.yui-uploader {
+    background:#eee;
+}
+.yui-uploader-content {
+    position:relative;    
+    width:100%; 
+    height:100%;
+    font: 8pt tahoma,sans-serif;
+    color:#666;
+    border:1px solid #999;
+}
+
+.yui-uploader-hd {
+}
+
+.yui-uploader-file-label {
+    position: absolute;
+    top: 0px;
+    left: 16px;
+}
+
+.yui-uploader-size-label {
+    position: absolute;
+    top: 0px;
+    right:94px;
+}
+.yui-uploader-remove-label {
+    position: absolute;
+    top: 0px;
+    right: 8px;    
+}
+.yui-uploader-bd {
+    position: absolute;
+    top: 14px;
+    left: 0px;
+    right:0px;
+    bottom:32px;
+    background:#fff;
+}
+.yui-uploader-ft {
+    position: absolute;
+    bottom: 0px;
+    left: 0px;
+}

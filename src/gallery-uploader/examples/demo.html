@@ -1,0 +1,47 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN"
+    "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+    <meta http-equiv="Content-type" content="text/html; charset=utf-8" />
+    <title>YUI 3 Timepicker</title>
+    <link rel="stylesheet" href="../assets/uploader.css" type="text/css" charset="utf-8" />
+</head>
+<body>
+    <div id="main">
+        <div id="demo" class="sec">
+            <h2>Demo</h2>
+            <div class="foo"></div>
+        </div>
+    </div>
+</body>
+<script type="text/javascript" src="http://yui.yahooapis.com/combo?3.0.0/build/yui/yui-min.js"></script>
+<script type="text/javascript" src="../build_tmp/gallery-uploader-debug.js"></script>
+
+<script type="text/javascript" charset="utf-8">
+    YUI().use('gallery-uploader', function(Y){
+        
+        var picker = new Y.BP.Uploader({contentBox: 'div.foo'});
+        
+        picker.render();
+        /*
+        picker.subscribe('timechange', function(e){
+            Y.get('#time').set('value',e.s24hour);
+        });
+        
+        picker.subscribe('cellclick', function(e){
+           this.hide(); 
+        },picker);
+
+        
+        function handleClick(e){
+            var target =e.target;
+            if(target.test('#time')){
+                picker.toggle();
+            }
+        }
+        
+        Y.get('#main').on('click', handleClick);
+        */
+    });
+</script>
+</html>
