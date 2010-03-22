@@ -35,59 +35,30 @@ var Lang = Y.Lang,
 
     UPLOADER = 'uploader',
     CONSTRUCTOR = 'Uploader',
-    NAMESPACE   = 'BP',
+    NAMESPACE   = 'BPlus',
 
-    CHECKED        = 'checked',
-    CLEAR          = 'clear',
-    CLICK          = 'click',
-    COLLAPSED      = 'collapsed',
     CONTENT_BOX    = 'contentBox',
-    DISABLED       = 'disabled',
-    ENTRY          = 'entry',
-    ERROR          = 'error',
-    HEIGHT         = 'height',
-    INFO           = 'info',
-    INNER_HTML     = 'innerHTML',
-    LAST_TIME      = 'lastTime',
-    PAUSE          = 'pause',
-    PAUSED         = 'paused',
-    RESET          = 'reset',
-    START_TIME     = 'startTime',
-    TITLE          = 'title',
-    WARN           = 'warn',
-    
+    ENTRY = 'entry',
+    CLICK = 'click',
+
     // my real ones
     LABEL = 'label',
-    FILE = 'file',
-    SIZE = 'size',
-    REMOVE = 'remove',
+    HEADER = 'hd',
+    BODY = 'bd',
+    FOOTER = 'ft',
+
 
     DOT = '.',
 
-    C_BUTTON           = getCN(UPLOADER,'button'),
-    C_CHECKBOX         = getCN(UPLOADER,'checkbox'),
-    C_CLEAR            = getCN(UPLOADER,CLEAR),
-    C_COLLAPSE         = getCN(UPLOADER,'collapse'),
-    C_COLLAPSED        = getCN(UPLOADER,COLLAPSED),
-    C_UPLOADER_CONTROLS = getCN(UPLOADER,'controls'),
-    C_UPLOADER_HD       = getCN(UPLOADER,'hd'),
-    C_UPLOADER_BD       = getCN(UPLOADER,'bd'),
-    C_UPLOADER_FT       = getCN(UPLOADER,'ft'),
-    C_UPLOADER_TITLE    = getCN(UPLOADER,TITLE),
-
-    // my real ones
-    C_FILE_LABEL = getCN(UPLOADER, FILE, LABEL),
-    C_SIZE_LABEL = getCN(UPLOADER, SIZE, LABEL),
-    C_REMOVE_LABEL = getCN(UPLOADER, REMOVE, LABEL),
     
-    C_ENTRY            = getCN(UPLOADER,ENTRY),
-    C_ENTRY_CAT        = getCN(UPLOADER,ENTRY,'cat'),
-    C_ENTRY_CONTENT    = getCN(UPLOADER,ENTRY,'content'),
-    C_ENTRY_META       = getCN(UPLOADER,ENTRY,'meta'),
-    C_ENTRY_SRC        = getCN(UPLOADER,ENTRY,'src'),
-    C_ENTRY_TIME       = getCN(UPLOADER,ENTRY,'time'),
-    C_PAUSE            = getCN(UPLOADER,PAUSE),
-    C_PAUSE_LABEL      = getCN(UPLOADER,PAUSE,'label');
+    RequiredServices = [
+        { service: "Uploader", version: "3" },
+        { service: "DragAndDrop", version: "1" },
+        { service: "FileBrowse", version: "1" }
+    ],
+
+    BP = YAHOO.BP;
+
 
 
     
@@ -122,13 +93,11 @@ Y.mix(Uploader, {
      * @type Object
      * @static
      */
-    ENTRY_CLASSES   : {
-        entry_class         : C_ENTRY,
-        entry_meta_class    : C_ENTRY_META,
-        entry_cat_class     : C_ENTRY_CAT,
-        entry_src_class     : C_ENTRY_SRC,
-        entry_time_class    : C_ENTRY_TIME,
-        entry_content_class : C_ENTRY_CONTENT
+    ENTRY_CLASSES : {
+        entry_class        : getCN(UPLOADER, ENTRY),
+        entry_name_label   : getCN(UPLOADER, ENTRY, 'name',   LABEL),  
+        entry_size_label   : getCN(UPLOADER, ENTRY, 'size',   LABEL),
+        entry_action_label : getCN(UPLOADER, ENTRY, 'action', LABEL)
     },
 
     /**
@@ -144,7 +113,7 @@ Y.mix(Uploader, {
      *   <li>console_controls_class</li>
      *   <li>console_checkbox_class</li>
      *   <li>console_pause_class</li>
-     *   <li>console_pause_label_class</li>
+     *   <li>console_pause_label</li>
      *   <li>console_button_class</li>
      *   <li>console_clear_class</li>
      *   <li>console_collapse_class</li>
@@ -156,28 +125,25 @@ Y.mix(Uploader, {
      * @static
      */
     CHROME_CLASSES  : {
-        /*
-        console_hd_class       : C_UPLOADER_HD,
-        console_bd_class       : C_UPLOADER_BD,
-        console_ft_class       : C_UPLOADER_FT,
-        console_controls_class : C_UPLOADER_CONTROLS,
-        console_checkbox_class : C_CHECKBOX,
-        console_pause_class    : C_PAUSE,
-        console_pause_label_class : C_PAUSE_LABEL,
-        console_button_class   : C_BUTTON,
-        console_clear_class    : C_CLEAR,
-        console_collapse_class : C_COLLAPSE,
-        console_title_class    : C_UPLOADER_TITLE,
-        */
+        hd_class        : getCN(UPLOADER, HEADER),
+        bd_class        : getCN(UPLOADER, BODY),
+        ft_class        : getCN(UPLOADER, FOOTER),
+        bg_class        : getCN(UPLOADER, "bg"),
+                                
+        hd_file_label   : getCN(UPLOADER, HEADER, 'file', LABEL),
+        hd_size_label   : getCN(UPLOADER, HEADER, 'size', LABEL),
+        hd_action_label : getCN(UPLOADER, HEADER, 'action', LABEL),
         
-        uploader_hd_class           : C_UPLOADER_HD,
-        uploader_bd_class           : C_UPLOADER_BD,
-        uploader_ft_class           : C_UPLOADER_FT,
-        uploader_file_label_class   : C_FILE_LABEL,
-        uploader_size_label_class   : C_SIZE_LABEL,
-        uploader_remove_label_class : C_REMOVE_LABEL
-    },
+        ft_files_class  : getCN(UPLOADER, FOOTER, 'files'),
+        ft_button_class : getCN(UPLOADER, FOOTER, 'button'),
+        ft_size_class   : getCN(UPLOADER, FOOTER, 'size'),
 
+        ft_num_label    : getCN(UPLOADER, FOOTER, 'num',   LABEL),
+        ft_files_label  : getCN(UPLOADER, FOOTER, 'files', LABEL),
+        ft_size_label   : getCN(UPLOADER, FOOTER, 'size',  LABEL),
+        ft_total_label  : getCN(UPLOADER, FOOTER, 'total', LABEL)
+    },
+    
     /**
      * Markup template used to generate the DOM structure for the header
      * section of the Console when it is rendered.  The template includes
@@ -196,22 +162,12 @@ Y.mix(Uploader, {
      * @type String
      * @static
      */
-    OLDHEADER_TEMPLATE :
-        '<div class="{console_hd_class}">'+
-            '<h4 class="{console_title_class}">{str_title}</h4>'+
-            '<button type="button" class="'+
-                '{console_button_class} {console_collapse_class}">{str_collapse}'+
-            '</button>'+
-        '</div>',
-
     HEADER_TEMPLATE : 
-        '<div class="{uploader_hd_class}">' +
-            '<div class="{uploader_file_label_class}">{str_file}</div>' +
-            '<div class="{uploader_size_label_class}">{str_size}</div>' +
-            '<div class="{uploader_remove_label_class}">{str_remove}</div>' +
+        '<div class="{hd_class} {bg_class}">' +
+            '<div class="{hd_file_label}">{str_file}</div>' +
+            '<div class="{hd_size_label}">{str_size}</div>' +
+            '<div class="{hd_action_label}"></div>' +
         '</div>',
-
-
 
     /**
      * Markup template used to generate the DOM structure for the Console body
@@ -223,7 +179,14 @@ Y.mix(Uploader, {
      * @type String
      * @static
      */
-    BODY_TEMPLATE : '<div class="{uploader_bd_class}">BODY HERE</div>',
+    BODY_TEMPLATE : '<div class="{bd_class}"></div>',
+
+    ENTRY_TEMPLATE : 
+        '<div id="{str_guid}" class="{entry_class}">' + 
+            '<div class="{entry_name_label}">{str_name}</div>' + 
+            '<div class="{entry_size_label}">{str_size}</div>' + 
+            '<div class="{entry_action_label}"></div>' + 
+        '</div>',
 
     /**
      * Markup template used to generate the DOM structure for the footer
@@ -241,15 +204,15 @@ Y.mix(Uploader, {
      * @static
      */
     FOOTER_TEMPLATE :
-        '<div class="{uploader_ft_class}">'+
-            '<div class="{console_controls_class}">'+
-                '<label for="{id_guid}" class="{console_pause_label_class}">'+
-                    '<input type="checkbox" class="{console_checkbox_class} '+
-                        '{console_pause_class}" value="1" id="{id_guid}"> '+
-                    '{str_pause}</label>' +
-                '<button type="button" class="'+
-                    '{console_button_class} {console_clear_class}">{str_clear}'+
-                '</button>'+
+        '<div class="{ft_class} {bg_class}">'+
+            '<div class="{ft_button_class}">' +
+                '<button type="button">{str_button}</button>'+
+                '<span class="{ft_num_label}">{str_num}</span> ' +
+                '<span class="{ft_files_label}">{str_files}</span>' +
+            '</div>'+
+            '<div class="{ft_size_class}">' +
+                '<span class="{ft_total_label}">{str_total}</span> ' +
+                '<span class="{ft_size_label}">{str_size}</span>' +
             '</div>'+
         '</div>',
 
@@ -300,6 +263,17 @@ Y.mix(Uploader, {
         },
     
         /**
+         * The cookie(s) sent alone with the uploaded files.
+         *
+         * @attribute cookie
+         * @type String
+         * @default null (cookie not sent)
+         */
+        cookie: {
+            value: "cookie monster"
+        },
+
+        /**
          * Archive and compress all files into a single ZIP file before upload.
          *
          * @attribute zipFiles
@@ -312,16 +286,19 @@ Y.mix(Uploader, {
 
         strings: {
             value: {
+                filename: "Filename",
                 file: "File",
                 files: "Files",
                 size: "Size",
-                remove: "Remove?",
-                removeHelp: "Remove file from list",
                 done: "Upload Complete!",
-                browser: "Browse...",
+                button: "Add Files...",
                 upload: "Upload",
-                total: "Total"
-
+                total: "Total:",
+                size_b:  ' B',
+                size_kb: ' KB',                
+                size_mb: ' MB',
+                size_gb: ' GB',
+                size_tb: ' TB'
             }
         }
     }
@@ -357,6 +334,36 @@ Y.extend(Uploader, Y.Widget, {
      * @protected
      */
     _foot    : null,
+    
+    /**
+     * List of BrowserPlus file handles to upload.
+     * 
+     * @property _files
+     * @type array
+     * @default empty array
+     * @private
+     */
+    _files : [],
+    
+    sizeInBytes:function(size) {
+        var i, units = [
+            this.get('strings.size_b'),
+            this.get('strings.size_kb'),
+            this.get('strings.size_mb'),
+            this.get('strings.size_gb'),
+            this.get('strings.size_tb')
+        ];
+
+        for (i = 0; size > 1024; i++) { 
+            size /= 1024; 
+        }
+
+        if (i < units.length) {
+            return Math.round(size*10)/10 + units[i];
+        } else {
+            return "?";
+        }
+    },
 
     initializer:function(){
         Y.log("initializer");
@@ -375,8 +382,79 @@ Y.extend(Uploader, Y.Widget, {
         this._initFoot();
     },
 
+    _filesSelected:function(files) {
+        var i, file, len = files.length;
+
+        for (i = 0; i < len; i++) {
+            file = files[i];
+            // constraint checks go here, like max # files, file size, file type, etc
+
+            // don't add files
+            // TODO traverse them????
+            if (file.mimeType != "application/x-folder") {
+                file.fguid = Y.guid().replace(/-/g, "_");
+                file.fname = file.BrowserPlusHandleName;
+                file.fsize = this.sizeInBytes(file.size);
+                this._files.push(file);
+                this._renderFile(file);
+            }
+        }
+    },
+    
+    _renderFile:function(file) {
+
+
+
+        var info = merge(Uploader.ENTRY_CLASSES, {
+            str_guid : fule.fguid,
+            str_name : file.fname,
+            str_size : file.fsize
+        });
+
+        this._body.append(substitute(Uploader.ENTRY_TEMPLATE, info));
+    },
+
+    _fileBrowser:function(e) {
+        //var args = ConfigParams.mimeTypes ? {mimeTypes: ConfigParams.mimeTypes} : {};
+        var args = {recurse:true}, that = this;
+
+		YAHOO.bp.FileBrowse.OpenBrowseDialog(args, function(r) {
+            Y.log("TESTING IT");
+            if (r.success) {
+                that._filesSelected(r.value);
+            }
+        });
+    },
+    
+
+    /**
+     * Attach BrowserPlus specific events to UI after BrowserPlus has been initialized.
+     *
+     * @method _binder
+     * @protected
+     */
+     _binder: function() {
+        Y.log("internal binder called!!" + this);
+        this.get(CONTENT_BOX).query('button').on(CLICK, this._fileBrowser,this);
+    },
+
+    /**
+     * Initialize BrowserPlus and bind events to UI.
+     * @method bindUI
+     */
     bindUI: function(){
         Y.log("bind ui");
+        var that = this;
+
+        YAHOO.bp.init({},function(init) {
+            if (init.success) {
+                YAHOO.bp.require({services: RequiredServices}, function(require) {
+                    if (require.success) {
+                        that._binder();
+                    }
+                });
+            }
+        });
     },
     
     syncUI: function(){
@@ -392,9 +470,8 @@ Y.extend(Uploader, Y.Widget, {
     _initHead : function () {
         var cb   = this.get(CONTENT_BOX),
             info = merge(Uploader.CHROME_CLASSES, {
-                        str_file : this.get('strings.file'),
-                        str_size : this.get('strings.size'),
-                        str_remove : this.get('strings.remove')
+                        str_file : this.get('strings.filename'),
+                        str_size : this.get('strings.size')
                     });
 
         this._head = create(substitute(Uploader.HEADER_TEMPLATE, info));
@@ -410,10 +487,8 @@ Y.extend(Uploader, Y.Widget, {
      * @protected
      */
     _initBody : function () {
-        this._body = create(substitute(
-                            Uploader.BODY_TEMPLATE,
-                            Uploader.CHROME_CLASSES));
-
+        this._body = create(substitute(Uploader.BODY_TEMPLATE, Uploader.CHROME_CLASSES));
+        Y.on("click", function(){alert("click");}, this._body);
         this.get(CONTENT_BOX).appendChild(this._body);
     },
 
@@ -424,7 +499,15 @@ Y.extend(Uploader, Y.Widget, {
      * @protected
      */
     _initFoot : function () {
-        this._foot = create(substitute(Uploader.FOOTER_TEMPLATE,Uploader.CHROME_CLASSES));
+        var info = merge(Uploader.CHROME_CLASSES, {
+                        str_num    : '0',
+                        str_files  : this.get('strings.files'),
+                        str_button : this.get('strings.button'),
+                        str_total  : this.get('strings.total'),
+                        str_size   : '0' + this.get('strings.size_kb')
+                    });
+
+        this._foot = create(substitute(Uploader.FOOTER_TEMPLATE, info));
 
         this.get(CONTENT_BOX).appendChild(this._foot);
     }
