@@ -138,23 +138,30 @@ Accordion.ATTRS = {
      * For example, if we are using LayoutManager's instance as sourceObject, we will have to use its "resize" event as resizeEvent
      *  
      * @default "default"
-     * @type String or Object, see the description above
+     * @type String or Object
      */
 
     resizeEvent: {
         value: DEFAULT,
         validator: function( value ){
-            return (Lang.isString(value) || Lang.isObject(value));
+            if( value === DEFAULT ){
+                return true;
+            } else if( Lang.isObject(value) ){
+                if( Lang.isValue( value.sourceObject ) && Lang.isValue( value.resizeEvent ) ){
+                    return true;
+                }
+            }
+            
+            return false;
         }
     },
 
     /**
      * @attribute useAnimation
-     * @description Whether or not Accordion should use animation when expand or collapse some item
-     * The animation in Accordion is slow in IE6
+     * @description Boolean indicating that Accordion should use animation when expanding or collapsing items.
      * 
-     * @default: true
-     * @type boolean
+     * @default true
+     * @type Boolean
      */
     useAnimation: {
         value: true,
@@ -186,14 +193,19 @@ Accordion.ATTRS = {
 
     /**
      * @attribute reorderItems
-     * @description Whether or not the items in Accordion can be reordered by using drag&drop
-     * 
-     * @default true
-     * @type boolean
+     * @description Boolean indicating that items can be reordered via drag and drop.<br>
+     *
+     * Enabling items reordering requires also including the optional drag and drop modules in YUI instance:<br>
+     * 'dd-constrain', 'dd-proxy', 'dd-drop', or just 'dd'
+     *
+     * @default false
+     * @type Boolean
      */
     reorderItems: {
-        value: true,
-        validator: Lang.isBoolean
+        value: false,
+        validator: function(value){
+            return Lang.isBoolean(value) && !Lang.isUndefined( Y.DD );
+        }
     },
 
     /**
@@ -220,16 +232,12 @@ Y.extend( Accordion, Y.Widget, {
      *
      * @method initializer
      * @protected
-     * @param  config {Object} Configuration object literal for the Accordion
+     * @param config {Object} Configuration object literal for the Accordion
      */
     initializer: function( config ) {
         this._initEvents();
 
         this.after( "render", Y.bind( this._afterRender, this ) );
-
-        this._forCollapsing = {};
-        this._forExpanding = {};
-        this._animations   = {};
     },
 
     
@@ -425,13 +433,40 @@ Y.extend( Accordion, Y.Widget, {
         this.publish( ITEMREORDERED );
     },
 
+
+    /**
+     * Contains items for collapsing
+     * @property _forCollapsing
+     * @protected
+     * @type Object
+     */
+    _forCollapsing : {},
+
+
+    /**
+     * Contains items for expanding
+     * @property _forExpanding
+     * @protected
+     * @type Object
+     */
+    _forExpanding : {},
+
+
+    /**
+    * Contains currently running animations
+    * @property _animations
+    * @protected
+    * @type Object
+    */
+    _animations   : {},
+
     
     /**
      * Collection of items handles.
      * Keeps track of each items's event handle, as returned from <code>Y.on</code> or <code>Y.after</code>.
      * @property _itemHandles
      * @private
-     * @type Array
+     * @type Object
      */
     _itemsHandles: {},
     
@@ -441,7 +476,7 @@ Y.extend( Accordion, Y.Widget, {
      *
      * @method _removeItemHandles
      * @protected
-     * @param {Y.AccordionItem} item The item, which handles to remove
+     * @param item {Y.AccordionItem} The item, which handles to remove
      */
     _removeItemHandles: function( item ){
         var itemHandles, itemHandle;
@@ -463,7 +498,7 @@ Y.extend( Accordion, Y.Widget, {
      *
      * @method _getNodeOffsetHeight
      * @protected
-     * @param {Node|HTMLElement} node The node to gather the height from
+     * @param node {Node|HTMLElement} The node to gather the height from
      * @return {Number} The calculated height or zero in case of failure
      */
     _getNodeOffsetHeight: function( node ){
@@ -497,9 +532,9 @@ Y.extend( Accordion, Y.Widget, {
      *
      * @method _setItemProperties
      * @protected
-     * @param {Y.AccordionItem} item The item, which properties should be updated
-     * @param {boolean} expanding The new value of "expanded" property
-     * @param {boolean} alwaysVisible The new value of "alwaysVisible" property
+     * @param item {Y.AccordionItem} The item, which properties should be updated
+     * @param expanding {Boolean} The new value of "expanded" property
+     * @param alwaysVisible {Boolean} The new value of "alwaysVisible" property
      */
     _setItemProperties: function( item, expanding, alwaysVisible ){
         var curAlwaysVisible, curExpanded;
@@ -526,10 +561,10 @@ Y.extend( Accordion, Y.Widget, {
      *
      * @method _setItemUI
      * @protected
-     * @param {Y.AccordionItem} item The item, which user interface should be updated
-     * @param {boolean} expanding If true, the item will be marked as expanded.
+     * @param item {Y.AccordionItem} The item, which user interface should be updated
+     * @param expanding {Boolean} If true, the item will be marked as expanded.
      * If false, the item will be marked as collapsed
-     * @param {boolean} alwaysVisible If true, the item will be marked as always visible.
+     * @param alwaysVisible {Boolean} If true, the item will be marked as always visible.
      * If false, the always visible mark will be removed
      */
     _setItemUI: function( item, expanding, alwaysVisible ){
@@ -564,7 +599,7 @@ Y.extend( Accordion, Y.Widget, {
      * @param params {Event} after resizeEventChange custom event
      */
     _afterResizeEventChange: function( params ){
-        this._setUpResizing( params.newValue );
+        this._setUpResizing( params.newVal );
     },
 
     
@@ -766,7 +801,7 @@ Y.extend( Accordion, Y.Widget, {
      * 
      * @method _storeItemsForCollapsing
      * @protected
-     * @param {Object} itemsToBeExcluded (optional) Contains one or more <code>Y.AccordionItem</code> instances,
+     * @param itemsToBeExcluded {Object} (optional) Contains one or more <code>Y.AccordionItem</code> instances,
      * which should be not included in the list
      */
     _storeItemsForCollapsing: function( itemsToBeExcluded ){
@@ -795,8 +830,8 @@ Y.extend( Accordion, Y.Widget, {
      * 
      * @method _expandItem
      * @protected
-     * @param {Y.AccordionItem} item The item, which should be expanded
-     * @param {Number} height The height to which we should expand the item
+     * @param item {Y.AccordionItem} The item, which should be expanded.
+     * @param height {Number} The height to which we should expand the item
      */
     _expandItem: function( item, height ){
         var alwaysVisible = item.get( ALWAYSVISIBLE );
@@ -813,10 +848,10 @@ Y.extend( Accordion, Y.Widget, {
      * 
      * @method _processExpanding
      * @protected
-     * @param {Y.AccordionItem} item An <code>Y.AccordionItem</code> instance to be expanded
-     * @param {Boolean} forceSkipAnimation If true, the animation will be skipped, 
+     * @param item {Y.AccordionItem} An <code>Y.AccordionItem</code> instance to be expanded
+     * @param forceSkipAnimation {Boolean} If true, the animation will be skipped,
      * without taking in consideration Accordion's <code>useAnimation</code> setting
-     * @param {Number} height The height to which item should be expanded
+     * @param height {Number} The height to which item should be expanded
      */
     _processExpanding: function( item, height, forceSkipAnimation ){
         var anim, curAnim, animSettings, notifyOthers = false,
@@ -884,8 +919,8 @@ Y.extend( Accordion, Y.Widget, {
      *
      * @method _onExpandComplete
      * @protected
-     * @param {Y.AccordionItem} item An <code>Y.AccordionItem</code> instance which has been expanded
-     * @param {Boolean} notifyOthers If true, itemExpanded event will be fired
+     * @param item {Y.AccordionItem} An <code>Y.AccordionItem</code> instance which has been expanded
+     * @param notifyOthers {Boolean} If true, itemExpanded event will be fired
      */
     _onExpandComplete: function( item, notifyOthers ){
         delete this._animations[ item ];
@@ -909,7 +944,7 @@ Y.extend( Accordion, Y.Widget, {
      * 
      * @method _collapseItem
      * @protected
-     * @param {Y.AccordionItem} item The item, which should be collapsed
+     * @param item {Y.AccordionItem} The item, which should be collapsed
      */
     _collapseItem: function( item ){
         this._processCollapsing( item, COLLAPSE_HEIGHT );
@@ -924,9 +959,9 @@ Y.extend( Accordion, Y.Widget, {
      * 
      * @method _processCollapsing
      * @protected
-     * @param {Y.AccordionItem} item An <code>Y.AccordionItem</code> instance to be collapsed
-     * @param {Number} height The height to which item should be collapsed
-     * @param {Boolean} forceSkipAnimation If true, the animation will be skipped, 
+     * @param item {Y.AccordionItem} An <code>Y.AccordionItem</code> instance to be collapsed
+     * @param height {Number} The height to which item should be collapsed
+     * @param forceSkipAnimation {Boolean} If true, the animation will be skipped,
      * without taking in consideration Accordion's <code>useAnimation</code> setting
      */
     _processCollapsing: function( item, height, forceSkipAnimation ){
@@ -995,8 +1030,8 @@ Y.extend( Accordion, Y.Widget, {
      *
      * @method _onCollapseComplete
      * @protected
-     * @param {Y.AccordionItem} item An <code>Y.AccordionItem</code> instance which has been collapsed
-     * @param {Boolean} notifyOthers If true, itemCollapsed event will be fired
+     * @param item {Y.AccordionItem} An <code>Y.AccordionItem</code> instance which has been collapsed
+     * @param notifyOthers {Boolean} If true, itemCollapsed event will be fired
      */
     _onCollapseComplete: function( item, notifyOthers ){
         delete this._animations[ item ];
@@ -1020,7 +1055,7 @@ Y.extend( Accordion, Y.Widget, {
      * 
      * @method _initItemDragDrop
      * @protected
-     * @param {Y.AccordionItem} item An <code>Y.AccordionItem</code> instance to be set as draggable
+     * @param item {Y.AccordionItem} An <code>Y.AccordionItem</code> instance to be set as draggable
      */
     _initItemDragDrop: function( item ){
         var itemHeader, dd, bb, itemBB, ddrop;
@@ -1061,7 +1096,7 @@ Y.extend( Accordion, Y.Widget, {
      *
      * @method _onDragStart
      * @protected
-     * @param {Y.DD.Drag} The drag instance of the item
+     * @param dd {Y.DD.Drag} The drag instance of the item
      * @param e {Event} the DD instance's drag:start custom event
      */
     _onDragStart: function( dd, e ){
@@ -1083,7 +1118,7 @@ Y.extend( Accordion, Y.Widget, {
      *
      * @method _onDragEnd
      * @protected
-     * @param {Y.DD.Drag} The drag instance of the item
+     * @param dd {Y.DD.Drag} The drag instance of the item
      * @param e {Event} the DD instance's drag:end custom event
      */
     _onDragEnd: function( dd, e ){
@@ -1104,7 +1139,7 @@ Y.extend( Accordion, Y.Widget, {
      *
      * @method _afterDragEnd
      * @protected
-     * @param {Y.DD.Drag} The drag instance of the item
+     * @param dd {Y.DD.Drag} The drag instance of the item
      * @param e {Event} the DD instance's drag:end custom event
      */
     _afterDragEnd: function( dd, e ){
@@ -1131,7 +1166,7 @@ Y.extend( Accordion, Y.Widget, {
      *
      * @method _onDropHit
      * @protected
-     * @param {Y.DD.Drag} The drag instance of the item
+     * @param dd {Y.DD.Drag} The drag instance of the item
      * @param e {Event} the DD instance's drag:drophit custom event
      */
     _onDropHit: function( dd, e) {
@@ -1260,7 +1295,7 @@ Y.extend( Accordion, Y.Widget, {
      * 
      * @method _afterItemExpand
      * @protected
-     * @param {EventFacade} params The event facade for the attribute change
+     * @param params {EventFacade} The event facade for the attribute change
      */
     _afterItemExpand: function( params ){
         var expanded, item, alwaysVisible, collapseOthersOnExpand;
@@ -1297,7 +1332,7 @@ Y.extend( Accordion, Y.Widget, {
      * 
      * @method _afterItemAlwaysVisible
      * @protected
-     * @param {EventFacade} params The event facade for the attribute change
+     * @param params {EventFacade} The event facade for the attribute change
      */
     _afterItemAlwaysVisible: function( params ){
         var item, alwaysVisible, expanded;
@@ -1341,7 +1376,7 @@ Y.extend( Accordion, Y.Widget, {
      * 
      * @method _afterContentHeight
      * @protected
-     * @param {EventFacade} params The event facade for the attribute change
+     * @param params {EventFacade} The event facade for the attribute change
      */
     _afterContentHeight: function( params ){
         var item, itemContentHeight, body, bodyHeight, expanded;
@@ -1365,6 +1400,47 @@ Y.extend( Accordion, Y.Widget, {
         }
     },
     
+
+    /**
+     * Handles the change of "contentUpdate" property of given item
+     *
+     * @method _afterContentUpdate
+     * @protected
+     * @param params {EventFacade} The event facade for the attribute change
+     */
+    _afterContentUpdate : function( params ){
+        var item, itemContentHeight, body, bodyHeight, expanded, auto, anim;
+
+        item = params.currentTarget;
+        auto = item.get( "contentHeight" ).method === "auto";
+        expanded = item.get( EXPANDED );
+
+        if( auto && expanded && params.src !== Y.Widget.UI_SRC ){
+            Y.later( 0, this, function(){
+                itemContentHeight = this._getItemContentHeight( item );
+
+                body = item.getStdModNode( WidgetStdMod.BODY );
+                bodyHeight = this._getNodeOffsetHeight( body );
+
+                if( itemContentHeight !== bodyHeight ){
+                    anim = this._animations[ item ];
+
+                    // stop waiting animation
+                    if( anim ){
+                        anim.stop();
+                    }
+
+                    this._adjustStretchItems();
+
+                    if( itemContentHeight < bodyHeight ){
+                        this._processCollapsing( item, itemContentHeight, !expanded );
+                    } else if( itemContentHeight > bodyHeight ){
+                        this._processExpanding( item, itemContentHeight, !expanded );
+                    }
+                }
+            } );
+        }
+    },
     
     
     /**
@@ -1374,7 +1450,7 @@ Y.extend( Accordion, Y.Widget, {
      * 
      * @method _setUpResizing
      * @protected
-     * @param {String|Object} String "default" or object with the following properties:
+     * @param value {String|Object} String "default" or object with the following properties:
      *  <dl>
      *      <dt>sourceObject</dt>
      *          <dd>An abbitrary object</dd>
@@ -1474,10 +1550,10 @@ Y.extend( Accordion, Y.Widget, {
      * registered in Accordion, the item will be added as child of the <code>parentItem</code>
      * 
      * @method addItem
-     * @param {Y.AccordionItem} item The item to be added in Accordion
-     * @param {Y.AccordionItem} parentItem (optional) This item will be the parent of the item being added
+     * @param item {Y.AccordionItem} The item to be added in Accordion
+     * @param parentItem {Y.AccordionItem} (optional) This item will be the parent of the item being added
      * 
-     * @return Boolean True in case of successfully added item, false otherwise
+     * @return {Boolean} True in case of successfully added item, false otherwise
      */
     addItem: function( item, parentItem ){
         var expanded, alwaysVisible, bodyContent, itemIndex, items, contentBox,
@@ -1580,7 +1656,8 @@ Y.extend( Accordion, Y.Widget, {
         itemHandles = {
             "expandedChange" : item.after( "expandedChange", Y.bind( this._afterItemExpand, this ) ),
             "alwaysVisibleChange" : item.after( "alwaysVisibleChange", Y.bind( this._afterItemAlwaysVisible, this ) ),
-            "contentHeightChange" : item.after( "contentHeightChange", Y.bind( this._afterContentHeight, this ) )
+            "contentHeightChange" : item.after( "contentHeightChange", Y.bind( this._afterContentHeight, this ) ),
+            "contentUpdate" : item.after( "contentUpdate", Y.bind( this._afterContentUpdate, this ) )
         };
         
         this._itemsHandles[ item ] = itemHandles;
@@ -1597,8 +1674,8 @@ Y.extend( Accordion, Y.Widget, {
      * Removes an previously registered item in Accordion
      * 
      * @method removeItem
-     * @param {Y.AccordionItem|Number} p_item The item to be removed, or its index
-     * @return Y.AccordionItem The removed item or null if not found
+     * @param p_item {Y.AccordionItem|Number} The item to be removed, or its index
+     * @return {Y.AccordionItem} The removed item or null if not found
      */
     removeItem: function( p_item ){
         var items, bb, item = null, itemIndex;
@@ -1641,10 +1718,10 @@ Y.extend( Accordion, Y.Widget, {
      * Searching for item, previously registered in Accordion
      * 
      * @method getItem
-     * @param {Number|Y.Node} param If number, this must be item's index.
+     * @param param {Number|Y.Node} If number, this must be item's index.
      * If Node, it should be the value of item's <code>contentBox</code> or <code>boundingBox</code> properties
      * 
-     * @return Y.AccordionItem The found item or null
+     * @return {Y.AccordionItem} The found item or null
      */
     getItem: function( param ){
         var items = this.get( ITEMS ), item = null;
@@ -1681,8 +1758,8 @@ Y.extend( Accordion, Y.Widget, {
      * Looking for the index of previously registered item
      * 
      * @method getItemIndex
-     * @param {Y.AccordionItem} item The item which index should be returned
-     * @return Number Item index or <code>-1</code> if item has been not found
+     * @param item {Y.AccordionItem} The item which index should be returned
+     * @return {Number} Item index or <code>-1</code> if item has been not found
      */
     getItemIndex: function( item ){
         var res = -1, items;
