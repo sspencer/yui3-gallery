@@ -2,6 +2,10 @@
 
 }
 
+.yui-uploader-hidden {
+    display:none;
+}
+
 .yui-uploader-bg {
     background:#f5f5f5;    
 }
@@ -87,19 +91,24 @@
     cursor:default;
 }
 
-.yui-uploader-entry-name-label {
+.yui-uploader-entry-name {
     position:absolute; 
     top:5px;
     left: 10px;
 }
 
-.yui-uploader-entry-size-label {
+.yui-uploader-entry-size {
     position:absolute; 
     top:5px;
     right:50px;
 }
 
-.yui-uploader-entry-action-label {
+.yui-uploader-entry-selected {
+    background:#006adb;
+    color: white;
+}
+
+.yui-uploader-entry-action {
     position:absolute;
     top:7px;
     right:18px;
