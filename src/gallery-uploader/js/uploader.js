@@ -6,11 +6,18 @@
 
 // local constants
 
+// TODO don't highlight Upload until certain number of files condidtion is met ... 
+// exactly 2 or more than 5 or less than 3 files are selected ...
+// Actually, webdev should add this logic by listening to events and 
+// accepting / rejecting files
 
-var	getCN = Y.ClassNameManager.getClassName,
+
+
+
+var getCN = Y.ClassNameManager.getClassName,
 
 	UPLOADER = "uploader",
-	CONTENT_BOX	= "contentBox",
+	CONTENT_BOX = "contentBox",
 
 	// class names
 	LABEL  = "label",
@@ -21,7 +28,7 @@ var	getCN = Y.ClassNameManager.getClassName,
 
 	// event names
 	CLICK  = "click",
-	ADD    = "add",
+	ADD	   = "add",
 	REMOVE = "remove",
 	UPLOAD = "upload",
 	DONE   = "done",
@@ -99,7 +106,7 @@ Uploader.ATTRS = {
 	},
 
 	/**
-	 * Maximum size in bytes of a single file.	Default is 2MB.  Set size to 0 or 
+	 * Maximum size in bytes of a single file.	Default is 2MB.	 Set size to 0 or 
 	 * less for no limit.
 	 *
 	 * @attribute maxFileSize
@@ -112,6 +119,18 @@ Uploader.ATTRS = {
 	},
 	
 	/**
+     * @description An array of mimeTypes for which the selected files will be filtered
+     *
+     * @attribute mimeTypes
+     * @default []
+     * @type Array
+     */
+	mimeTypes: {
+		value: [],
+		validator: Lang.isArray
+	},
+
+	/**
 	 * The optional cookie string POSTed to server during upload.
 	 *
 	 * @attribute cookie
@@ -123,34 +142,23 @@ Uploader.ATTRS = {
 	},
 
 	/**
-	 * Archive and compress all files into a single ZIP file before upload.
-	 *
-	 * @attribute zipFiles
-	 * @type Boolean
-	 * @default false
-	 */
-	zipFiles : {
-		value : false
-	},
-
-	/**
 	 * The localizable strings for the Uploader.
 	 */
 	strings: {
 		value: {
-			filename:        "Filename",
-			file:            "File",
-			files:           "Files",
-			size:            "Size",
+			filename:		 "Filename",
+			file:			 "File",
+			files:			 "Files",
+			size:			 "Size",
 			upload_complete: "Upload Complete!",
-			add_files:       "Add Files...",
-			upload:          "Upload",
-			total:           "Total:",
-			size_b:	         " B",
-			size_kb:         " KB",				   
-			size_mb:         " MB",
-			size_gb:         " GB",
-			size_tb:         " TB"
+			add_files:		 "Add Files...",
+			upload:			 "Upload",
+			total:			 "Total:",
+			size_b:			 " B",
+			size_kb:		 " KB",				   
+			size_mb:		 " MB",
+			size_gb:		 " GB",
+			size_tb:		 " TB"
 		}
 	}
 };
@@ -165,9 +173,9 @@ Uploader.ATTRS = {
  */
 Uploader.ENTRY_CSS = {
 	entry_class	 : getCN(UPLOADER, ENTRY),
-	entry_sel    : getCN(UPLOADER, ENTRY, "selected"),
-	entry_name   : getCN(UPLOADER, ENTRY, "name"),
-	entry_size   : getCN(UPLOADER, ENTRY, "size"),
+	entry_sel	 : getCN(UPLOADER, ENTRY, "selected"),
+	entry_name	 : getCN(UPLOADER, ENTRY, "name"),
+	entry_size	 : getCN(UPLOADER, ENTRY, "size"),
 	entry_action : getCN(UPLOADER, ENTRY, "action")
 };
 
@@ -186,8 +194,8 @@ Uploader.CHROME_CSS = {
 	ft_class		: getCN(UPLOADER, FOOTER),
 	bg_class		: getCN(UPLOADER, "bg"),
 							
-	hd_file_label	: getCN(UPLOADER, HEADER, "file",   LABEL),
-	hd_size_label	: getCN(UPLOADER, HEADER, "size",   LABEL),
+	hd_file_label	: getCN(UPLOADER, HEADER, "file",	LABEL),
+	hd_size_label	: getCN(UPLOADER, HEADER, "size",	LABEL),
 	hd_action_label : getCN(UPLOADER, HEADER, "action", LABEL),
 	
 	ft_files_class	: getCN(UPLOADER, FOOTER, "files"),
@@ -296,15 +304,66 @@ Y.extend(Uploader, Y.Widget, {
 		}
 	},
 
+	/** Default 'onAddFunc' if user does not provide one.  Filters by the
+	 * configured 'maxFileSize'.
+	 */
+	_onAddFunc: function(file, context) {
+		return (file.size <= this.get("maxFileSize"));
+	},
+	
+
+	_filesAdded: function(files) {
+		var dirArgs = {files: files};
+		var mimeTypes = this.get("mimeTypes");
+
+		if (mimeTypes.length > 0) { dirArgs.mimetypes = this.get("mimeTypes"); }
+
+		BrowserPlus.Directory.recursiveListWithStructure(dirArgs, function(res) {
+			if (res.success) {
+				
+			}
+		});
+
+	},
+	
 	/** User added files to uploader through FileBrowse or DragAndDrop */
-	_filesAdded:function(files) {
-		var i, file, len = files.length;
+	_filesAdded2:function(files) {
+		var i, file, len = files.length, retval,
+			onAddFunc = this.get("onAdd"), 
+			onAddScope = this.get("onAddScope"),
+			callUserFunc = false, 
+			callUserScope = false;
+
+		// how are we going to call user defined function -- remember for nulling out later
+		if (onAddFunc !== null && onAddFunc !== undefined) {
+			if (onAddScope !== null && onAddScope !== undefined){
+				callUserScope = true;
+				onAddScope.anonymousCall = onAddFunc;
+			} else {
+				callUserFunc = true;
+			}
+		}
+		
+		// pass 1 - convert all directories into files
 
 		for (i = 0; i < len; i++) {
 			file = files[i];
-			// constraint checks go here, like max # files, file size, file type, etc
 
-			// don't add files
+			if (callUserScope) {
+				retval = onAddScope.anonymousCall(file);
+			} else if (callUserFunc) {
+				retval = onAddFunc(file);
+			} else {
+				retval = this._onAddFunc(file);
+			}
+
+			if (retval) {
+				this.fire(this.ADD, file, this);
+			}
+
+			// default if it's not set
+			// constraint checks: like max # files, min # files, file size, file type, etc
+
 			// TODO traverse them????
 			if (file.mimeType != "application/x-folder") {
 				file.fguid = Y.guid().replace(/-/g, "_");
@@ -313,6 +372,11 @@ Y.extend(Uploader, Y.Widget, {
 				this._files.push(file);
 				this._renderFile(file);
 			}
+		}
+		
+		// clean up
+		if (callUserScope) {
+			onAddScope.anonymousCall = null;
 		}
 	},
 	
@@ -353,35 +417,21 @@ Y.extend(Uploader, Y.Widget, {
 	},
 
 
-	// user clicked in uploader body - highlight file entry or remove file action
+	// user clicked in uploader body - see if click is on delete button
 	_fileClickEvent: function(e) {
 		var node = e.target, id, cn = node.get("className");
 
-		// TODO configurable file selection option ... maybe webdev doesn't
-		// want selectable files / form
-		
-		// TODO don't highlight Upload until certain number of files condidtion is met ... 
-		// exactly 2 or more than 5 or less than 3 files are selected ...
-		// Actually, webdev should add this logic by listening to events and 
-		// accepting / rejecting files
-		
-
-		// find nearest file entry
-		node = this._getNodeOrAncestorWithClass(node, Uploader.ENTRY_CSS.entry_class);
-		
-		// blanket unhighlight
-		Y.all("."+Uploader.ENTRY_CSS.entry_class).removeClass(Uploader.ENTRY_CSS.entry_sel);
-
-		// user clicked on empty space
-		if (!node) { return; }
-
-		id = node.get("id");
+		// clicked on delete action
 		if (cn === Uploader.ENTRY_CSS.entry_action) {
-			// user clicked on REMOVE action
-			alert("Delete " + id);
-		} else {
-			// user clicked on file entry
-			node.toggleClass(Uploader.ENTRY_CSS.entry_sel);
+			// find nearest file entry
+			node = this._getNodeOrAncestorWithClass(node, Uploader.ENTRY_CSS.entry_class);
+			if (node) {
+				e.preventDefault();
+				id = node.get("id");
+
+				// user clicked on REMOVE action
+				alert("Delete " + id);
+			}
 		}
 	},
 
@@ -454,10 +504,10 @@ Y.extend(Uploader, Y.Widget, {
 	initializer: function(){
 		Y.log("initializer");
 		this.publish(CLICK);  // file selected
-		this.publish(ADD);    // file added to list
+		this.publish(ADD);	  // file added to list
 		this.publish(REMOVE); // file removed from list
 		this.publish(UPLOAD); // file uploaded
-		this.publish(DONE);   // all files uploaded
+		this.publish(DONE);	  // all files uploaded
 	},
 			  
 	destructor: function(){
