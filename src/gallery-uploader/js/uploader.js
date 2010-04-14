@@ -25,20 +25,26 @@ var getCN = Y.ClassNameManager.getClassName,
 	BODY   = "bd",
 	FOOTER = "ft",
 	ENTRY  = "entry",
+	BG     = "bg",
 
 	// event names
-	CLICK  = "click",
-	ADD	   = "add",
-	REMOVE = "remove",
-	UPLOAD = "upload",
-	DONE   = "done",
+	FILE_ADDED     = "FileAdded",	  
+	FILE_REMOVED   = "FileRemoved",
+	FILE_UPLOADED  = "FileUploaded",
+	FILE_PROGRESS  = "FileProgress",
+
+	FILES_CHANGED  = "FilesChanged",
+	FILES_PROGRESS = "FilesProgress", // percentage of all total
+	FILES_UPLOADED = "FilesUploaded", // sent after all files uploaded
+
 
 	MB = 1024*1024,
 	
 	// BrowserPlus Services
 	SERVICES = [
-		{ service: "Uploader", version: "3" },
+		{ service: "Uploader", version: "3", minversion: "3.2.10" },
 		{ service: "DragAndDrop", version: "2" },
+		{ service: "Directory", version: "2" },
 		{ service: "FileBrowse", version: "2" },
 		{ service: "Archiver", version: "1" }
 	];
@@ -80,32 +86,6 @@ Uploader.NAME = UPLOADER;
 Uploader.ATTRS = {
 	
 	/**
-	 * String with units, or number, representing the height of the Uploader,
-	 * inclusive of header and footer. If a number is provided, the default
-	 * unit, defined by Widget's DEF_UNIT, property is used.
-	 *
-	 * @attribute height
-	 * @default "200px"
-	 * @type {String | Number}
-	 */
-	height: {
-		value: "200px"
-	},
-
-	/**
-	 * String with units, or number, representing the width of the Uploader.
-	 * If a number is provided, the default unit, defined by Widget's
-	 * DEF_UNIT, property is used.
-	 *
-	 * @attribute width
-	 * @default "400px"
-	 * @type {String | Number}
-	 */
-	width: {
-		value: "400px"
-	},
-
-	/**
 	 * Maximum size in bytes of a single file.	Default is 2MB.	 Set size to 0 or 
 	 * less for no limit.
 	 *
@@ -127,7 +107,7 @@ Uploader.ATTRS = {
      */
 	mimeTypes: {
 		value: [],
-		validator: Lang.isArray
+		validator: Y.Lang.isArray
 	},
 
 	/**
@@ -142,13 +122,50 @@ Uploader.ATTRS = {
 	},
 
 	/**
+	 * Array of files that are going to be uploaded.  Each file is a object that
+	 * contains {name, size, TBD}.
+	 * 
+	 * @attribute files
+	 * @readOnly
+	 * @default []
+	 * @type Array
+	 */
+	files: {
+		value: [],
+		readOnly: true,
+		validator: Y.Lang.isArray
+	},
+	
+	/**
+	 * Returns true when files are actively being uploaded.
+	 * @attribute isUploading
+	 * @readOnly
+	 * @default false
+	 * @type Boolean
+	 */
+	isUploading: {
+		value: false,
+		readOnly: true
+	},
+
+	/**
+	 * Returns the current file upload percentage.
+	 * @attribute files
+	 * @readOnly
+	 * @default 0
+	 * @type Number
+	 */
+	progress: {
+		value: 0,
+		readOnly: true
+	},
+
+	/**
 	 * The localizable strings for the Uploader.
 	 */
 	strings: {
 		value: {
-			filename:		 "Filename",
-			file:			 "File",
-			files:			 "Files",
+			filename:		 "File",
 			size:			 "Size",
 			upload_complete: "Upload Complete!",
 			add_files:		 "Add Files...",
@@ -192,7 +209,7 @@ Uploader.CHROME_CSS = {
 	hd_class		: getCN(UPLOADER, HEADER),
 	bd_class		: getCN(UPLOADER, BODY),
 	ft_class		: getCN(UPLOADER, FOOTER),
-	bg_class		: getCN(UPLOADER, "bg"),
+	bg_class		: getCN(UPLOADER, BG),
 							
 	hd_file_label	: getCN(UPLOADER, HEADER, "file",	LABEL),
 	hd_size_label	: getCN(UPLOADER, HEADER, "size",	LABEL),
@@ -202,8 +219,6 @@ Uploader.CHROME_CSS = {
 	ft_button_class : getCN(UPLOADER, FOOTER, "button"),
 	ft_size_class	: getCN(UPLOADER, FOOTER, "size"),
 
-	ft_num_label	: getCN(UPLOADER, FOOTER, "num",   LABEL),
-	ft_files_label	: getCN(UPLOADER, FOOTER, "files", LABEL),
 	ft_size_label	: getCN(UPLOADER, FOOTER, "size",  LABEL),
 	ft_total_label	: getCN(UPLOADER, FOOTER, "total", LABEL)
 };
@@ -230,6 +245,7 @@ Uploader.HEADER_TEMPLATE =
  * @type String
  * @static
  */
+//Uploader.BODY_TEMPLATE = '<div class="yui-uploader-bd-err">Error</div><div class="{bd_class}"></div>';
 Uploader.BODY_TEMPLATE = '<div class="{bd_class}"></div>';
 
 
@@ -260,9 +276,7 @@ Uploader.FOOTER_TEMPLATE =
 	'<div class="{ft_class} {bg_class}">'+
 		'<div class="{ft_button_class}">' +
 			'<button id="add_button" type="button">{str_add_files}</button>'+
-			'<button id="upload_button" type="button">{str_upload}</button>'+
-			'<span class="{ft_num_label}">{str_num}</span> ' +
-			'<span class="{ft_files_label}">{str_files}</span>' +
+			'<button disabled id="upload_button" type="button">{str_upload}</button>'+
 		'</div>'+
 		'<div class="{ft_size_class}">' +
 			'<span class="{ft_total_label}">{str_total}</span> ' +
@@ -282,11 +296,9 @@ Y.extend(Uploader, Y.Widget, {
 	// Reference to the Node instance containing the footer contents.
 	_foot: null,
 	
-	// List of BrowserPlus file handles to upload.
-	_files: [],
 	
 	/** Convert number of bytes into human readable string (ala "2 MB") */
-	_sizeInBytes: function(size) {
+	getSizeInBytes: function(size) {
 		var i, units = [
 			this.get("strings.size_b"),
 			this.get("strings.size_kb"),
@@ -304,102 +316,114 @@ Y.extend(Uploader, Y.Widget, {
 		}
 	},
 
-	/** Default 'onAddFunc' if user does not provide one.  Filters by the
-	 * configured 'maxFileSize'.
-	 */
-	_onAddFunc: function(file, context) {
-		return (file.size <= this.get("maxFileSize"));
+	// return index of file indentified by 'id' or return -1
+	_getFileIndex: function(id) {
+		var i, len, files = this.get("files");
+		for (i = 0, len = files.length; i < len; i++) {
+			if (id === files[i].id) {
+				return i;
+			}
+		}
+		return -1;
 	},
-	
+
+	// search through files array and return index of entry with same handle id.
+	_getHandleIndex: function(handle) {
+		var i, len, files = this.get("files");
+		for (i = 0, len = files.length; i < len; i++) {
+			if (handle === files[i].BrowserPlusHandleID) {
+				return i;
+			}
+		}
+		return -1;
+	},
 
 	_filesAdded: function(files) {
-		var dirArgs = {files: files};
-		var mimeTypes = this.get("mimeTypes");
-
+		var dirArgs = {files: files},
+			mimeTypes = this.get("mimeTypes"),
+			that = this;
+		
+		Y.log("_filesAdded");
 		if (mimeTypes.length > 0) { dirArgs.mimetypes = this.get("mimeTypes"); }
 
-		BrowserPlus.Directory.recursiveListWithStructure(dirArgs, function(res) {
-			if (res.success) {
-				
+		BrowserPlus.Directory.recursiveList(dirArgs, function(res) {
+			var i, file, files, maxFileSize;
+
+			if (!res.success) { return; }
+
+			maxFileSize = that.get("maxFileSize");
+
+			files = res.value.files;
+			for (i = 0; i < files.length; i++) {
+				file = files[i];
+
+				// don't add duplicate files
+ 				if (that._getHandleIndex(file.BrowserPlusHandleID) === -1) {
+					// ignore directories, only care about files now
+					if (file.mimeType[0] === "application/x-folder") { continue; }
+
+					// if there's no max set OR file size < max, add file to Uploader
+					if (maxFileSize < 1 || file.size <= maxFileSize) {
+						file.id = Y.guid().replace(/-/g, "_");
+						that.fire(FILE_ADDED, { file: file });
+					}
+				}
 			}
+
+			// done adding files, fire meta event
+			that.fire(FILES_CHANGED);
 		});
-
 	},
-	
-	/** User added files to uploader through FileBrowse or DragAndDrop */
-	_filesAdded2:function(files) {
-		var i, file, len = files.length, retval,
-			onAddFunc = this.get("onAdd"), 
-			onAddScope = this.get("onAddScope"),
-			callUserFunc = false, 
-			callUserScope = false;
 
-		// how are we going to call user defined function -- remember for nulling out later
-		if (onAddFunc !== null && onAddFunc !== undefined) {
-			if (onAddScope !== null && onAddScope !== undefined){
-				callUserScope = true;
-				onAddScope.anonymousCall = onAddFunc;
-			} else {
-				callUserFunc = true;
-			}
-		}
-		
-		// pass 1 - convert all directories into files
-
-		for (i = 0; i < len; i++) {
-			file = files[i];
-
-			if (callUserScope) {
-				retval = onAddScope.anonymousCall(file);
-			} else if (callUserFunc) {
-				retval = onAddFunc(file);
-			} else {
-				retval = this._onAddFunc(file);
-			}
-
-			if (retval) {
-				this.fire(this.ADD, file, this);
-			}
-
-			// default if it's not set
-			// constraint checks: like max # files, min # files, file size, file type, etc
-
-			// TODO traverse them????
-			if (file.mimeType != "application/x-folder") {
-				file.fguid = Y.guid().replace(/-/g, "_");
-				file.fname = file.BrowserPlusHandleName;
-				file.fsize = this._sizeInBytes(file.size);
-				this._files.push(file);
-				this._renderFile(file);
-			}
-		}
-		
-		// clean up
-		if (callUserScope) {
-			onAddScope.anonymousCall = null;
-		}
-	},
 	
 	/** Display just added file in UI */
-	_renderFile: function(file) {
+	_fileAddedEvent: function(e) {
+		Y.log("fileAddedEvent:");
+		Y.log(e.file);
+		// remember file
+		this.get("files").push(e.file);
 
+		
+		// add file to ui
 		var info = Y.merge(Uploader.ENTRY_CSS, {
-			str_guid : file.fguid,
-			str_name : file.fname,
-			str_size : file.fsize
+			str_guid : e.file.id,
+			str_name : e.file.name,
+			str_size : this.getSizeInBytes(e.file.size)
 		});
 
 		this._body.append(Y.substitute(Uploader.ENTRY_TEMPLATE, info));
 	},
 
+	// TODO - remove me, for dbg only
+	printfiles: function() {
+		var i, files = this.get("files");
+		for (i = 0; i < files.length; i++) {
+			Y.log("...[" + i + "] " + files[i].id + " " + files[i].name);
+		}
+	},
+
+	_fileRemovedEvent: function(e) {
+		var index = this._getFileIndex(e.file.id);
+		if (index !== -1) {
+			Y.log("File Removed Event: index=" +index + ", id="+ e.file.id);
+			this.get("files").splice(index, 1); // changes array in place
+			Y.one("#"+e.file.id).remove(); // remove from UI
+		}
+	},
+
+	_filesChangedEvent: function() {
+		Y.log("File Changed Event");
+
+		// disable upload button when there are no files
+		this.get(CONTENT_BOX).query('#upload_button').set("disabled", (this.get("files").length < 1));
+	},
+
 	/** User clicked Add Files... BrowserPlus.OpenBrowseDialog classed */
 	_fileBrowser: function(e) {
-		//var args = ConfigParams.mimeTypes ? {mimeTypes: ConfigParams.mimeTypes} : {};
 		var that = this;
 
 		YAHOO.bp.FileBrowse.OpenBrowseDialog({}, function(r) {
 			if (r.success) {
-				Y.log("TESTING IT: " + r.value.files);
 				that._filesAdded(r.value.files);
 			} else {
 				alert("ERROR: " + r.error + " : " + r.verboseError);
@@ -419,7 +443,7 @@ Y.extend(Uploader, Y.Widget, {
 
 	// user clicked in uploader body - see if click is on delete button
 	_fileClickEvent: function(e) {
-		var node = e.target, id, cn = node.get("className");
+		var node = e.target, cn = node.get("className"), index, i;
 
 		// clicked on delete action
 		if (cn === Uploader.ENTRY_CSS.entry_action) {
@@ -427,10 +451,14 @@ Y.extend(Uploader, Y.Widget, {
 			node = this._getNodeOrAncestorWithClass(node, Uploader.ENTRY_CSS.entry_class);
 			if (node) {
 				e.preventDefault();
-				id = node.get("id");
 
 				// user clicked on REMOVE action
-				alert("Delete " + id);
+				index = this._getFileIndex(node.get("id"));
+					
+				if (index != -1) {
+					this.fire(FILE_REMOVED, {file: this.get("files")[index]});
+					this.fire(FILES_CHANGED);
+				}
 			}
 		}
 	},
@@ -442,10 +470,9 @@ Y.extend(Uploader, Y.Widget, {
 	 * @protected
 	 */
 	 _binder: function() {
-		Y.log("internal binder called!!" + this);
-		this.get(CONTENT_BOX).query('#add_button').on(CLICK, this._fileBrowser,this);
-		this._body.on(CLICK, this._fileClickEvent, this);
-		//this.get(CONTENT_BOX).query("").on(CLICK, this._fileClickEvent, this);
+		//Y.log("internal binder called!!" + this);
+		this.get(CONTENT_BOX).query('#add_button').on("click", this._fileBrowser,this);
+		this._body.on("click", this._fileClickEvent, this);
 	},
 
 	/**
@@ -461,7 +488,7 @@ Y.extend(Uploader, Y.Widget, {
 						str_size : this.get('strings.size')
 					});
 
-		Y.log("init head");
+		//Y.log("init head");
 		this._head = Y.Node.create(Y.substitute(Uploader.HEADER_TEMPLATE, info));
 		cb.insertBefore(this._head,cb.get('firstChild'));
 	},
@@ -474,7 +501,7 @@ Y.extend(Uploader, Y.Widget, {
 	 * @protected
 	 */
 	_initBody : function () {
-		Y.log("init body");
+		//Y.log("init body");
 		this._body = Y.Node.create(Y.substitute(Uploader.BODY_TEMPLATE, Uploader.CHROME_CSS));
 		this.get(CONTENT_BOX).appendChild(this._body);
 	},
@@ -486,10 +513,8 @@ Y.extend(Uploader, Y.Widget, {
 	 * @protected
 	 */
 	_initFoot : function () {
-		Y.log("init footer");
+		//Y.log("init footer");
 		var info = Y.merge(Uploader.CHROME_CSS, {
-						str_num	   : '0',
-						str_files  : this.get('strings.files'),
 						str_add_files	  : this.get('strings.add_files'),
 						str_upload : this.get('strings.upload'),
 						str_total  : this.get('strings.total'),
@@ -502,16 +527,14 @@ Y.extend(Uploader, Y.Widget, {
 	},
 
 	initializer: function(){
-		Y.log("initializer");
-		this.publish(CLICK);  // file selected
-		this.publish(ADD);	  // file added to list
-		this.publish(REMOVE); // file removed from list
-		this.publish(UPLOAD); // file uploaded
-		this.publish(DONE);	  // all files uploaded
+		//Y.log("initializer");
+		this.publish(FILE_ADDED);    // 1 file added
+		this.publish(FILE_REMOVED);  // 1 file removed
+		this.publish(FILES_CHANGED); // after files added or removed
 	},
 			  
 	destructor: function(){
-		Y.log("destructor");
+		//Y.log("destructor");
 	},
 	
 	renderUI: function(){
@@ -525,8 +548,12 @@ Y.extend(Uploader, Y.Widget, {
 	 * @method bindUI
 	 */
 	bindUI: function(){
-		Y.log("bind ui");
+		//Y.log("bind ui");
 		var that = this;
+
+		this.after(FILE_ADDED, this._fileAddedEvent, this);
+		this.after(FILE_REMOVED, this._fileRemovedEvent, this);
+		this.after(FILES_CHANGED, this._filesChangedEvent, this);
 
 		YAHOO.bp.init({},function(init) {
 			if (init.success) {
@@ -537,10 +564,11 @@ Y.extend(Uploader, Y.Widget, {
 				});
 			}
 		});
+		
 	},
 	
 	syncUI: function(){
-		Y.log("syncUI");
+		//Y.log("syncUI");
 	}
 
 });
