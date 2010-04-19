@@ -30,12 +30,12 @@ var getCN = Y.ClassNameManager.getClassName,
 	// event names
 	FILE_ADDED     = "FileAdded",	  
 	FILE_REMOVED   = "FileRemoved",
-	FILE_UPLOADED  = "FileUploaded",
-	FILE_PROGRESS  = "FileProgress",
+	//FILE_UPLOADED  = "FileUploaded",
+	//FILE_PROGRESS  = "FileProgress",
 
 	FILES_CHANGED  = "FilesChanged",
-	FILES_PROGRESS = "FilesProgress", // percentage of all total
-	FILES_UPLOADED = "FilesUploaded", // sent after all files uploaded
+	//FILES_PROGRESS = "FilesProgress", // percentage of all total
+	//FILES_UPLOADED = "FilesUploaded", // sent after all files uploaded
 
 
 	MB = 1024*1024,
@@ -255,7 +255,7 @@ Uploader.BODY_TEMPLATE =
 		'<div id="{filelist_id}" class="{bd_class} {filelist_class}"></div>'+ 
 		'<div style="visibility:hidden" class="{bd_class} {message_class}"></div>' +
 		'<div style="visibility:hidden" class="{bd_class} {progress_class}"></div>' +
-		'<div style="visibility:visible" class="{bd_class} {hover_class}">' + 
+		'<div style="visibility:hidden" class="{bd_class} {hover_class}">' + 
 			'<div class="{hover_text}">{str_drop_files}</div>' + 
 		'</div>' +
 	'</div>';
@@ -312,20 +312,23 @@ Uploader.FOOTER_CSS = {
 
 
 Y.extend(Uploader, Y.Widget, {
-	// Reference to the Node instance containing the header contents.
-	_head: null,
-
+	// the box this widget is renedered into
+	_contentBox: null,
+	
 	 // Reference to the Node instance that will house the console messages.
 	_body: null,
 	
-	// maybe need messages and progress too
-	
-	_filelist: null,
-	
-	_hoverpane: null,
-
 	// Reference to the Node instance containing the footer contents.
 	_foot: null,
+
+	// maybe need messages and progress too
+	_filelist: null,
+
+	// message that shows when user drags files over uploader body panel
+	_hoverpane: null,
+
+	// error message panel
+	// _messagepane: null, 
 	
 	
 	/** Convert number of bytes into human readable string (ala "2 MB") */
@@ -369,12 +372,11 @@ Y.extend(Uploader, Y.Widget, {
 		return -1;
 	},
 
-	_filesAdded: function(files) {
+	_addFilesToList: function(files) {
 		var dirArgs = {files: files},
 			mimeTypes = this.get("mimeTypes"),
 			that = this;
 		
-		Y.log("_filesAdded");
 		if (mimeTypes.length > 0) { dirArgs.mimetypes = this.get("mimeTypes"); }
 
 		BrowserPlus.Directory.recursiveList(dirArgs, function(res) {
@@ -409,8 +411,6 @@ Y.extend(Uploader, Y.Widget, {
 	
 	/** Display just added file in UI */
 	_fileAddedEvent: function(e) {
-		Y.log("fileAddedEvent:");
-		Y.log(e.file);
 		// remember file
 		this.get("files").push(e.file);
 
@@ -436,30 +436,40 @@ Y.extend(Uploader, Y.Widget, {
 	_fileRemovedEvent: function(e) {
 		var index = this._getFileIndex(e.file.id);
 		if (index !== -1) {
-			Y.log("File Removed Event: index=" +index + ", id="+ e.file.id);
 			this.get("files").splice(index, 1); // changes array in place
 			Y.one("#"+e.file.id).remove(); // remove from UI
 		}
 	},
 
 	_filesChangedEvent: function() {
-		Y.log("File Changed Event");
-
 		// disable upload button when there are no files
-		this.get(CONTENT_BOX).query('#upload_button').set("disabled", (this.get("files").length < 1));
+		var i, size=0, files = this.get("files"), numfiles = files.length;
+
+		// only set enabled button when there are files in list to upload
+		this._contentBox.query('#upload_button').set("disabled", (numfiles < 1));
+
+		// recalculate total size
+		for(i = 0; i < numfiles; i++) {
+			size += files[i].size;
+		}
+		
+		this._foot.one("." + Uploader.FOOTER_CSS.ft_size_label).setContent(this.getSizeInBytes(size));
 	},
 
 	/** User clicked Add Files... BrowserPlus.OpenBrowseDialog classed */
-	_fileBrowser: function(e) {
+	_openFileDialog: function(e) {
 		var that = this;
 
 		YAHOO.bp.FileBrowse.OpenBrowseDialog({}, function(r) {
 			if (r.success) {
-				that._filesAdded(r.value.files);
-			} else {
-				alert("ERROR: " + r.error + " : " + r.verboseError);
+				that._addFilesToList(r.value.files);
 			}
 		});
+	},
+
+	_uploadFiles: function(e) {
+		this.printfiles();
+		alert("Upload files printed to console");
 	},
 	
 	// return the nearest ancestor (including the given node) with the specified className
@@ -504,20 +514,26 @@ Y.extend(Uploader, Y.Widget, {
 	 _binder: function() {
 		var hover = this._hoverpane, id = this._filelist.get("id"), that = this;
 
-		this.get(CONTENT_BOX).query('#add_button').on("click", this._fileBrowser,this);
+		this._contentBox.query('#add_button').on("click", this._openFileDialog, this);
+		this._contentBox.query('#upload_button').on("click", this._uploadFiles, this);
+
 		this._filelist.on("click", this._fileClickEvent, this);
 
 		BrowserPlus.DragAndDrop.AddDropTarget({ id: id}, function (r) {
 			if (r.success) {
 				BrowserPlus.DragAndDrop.AttachCallbacks({id: id, 
 					hover: function(hovering) {
-						hover.setStyle("visibility", hovering ? "visible" : "hidden");
+						var visible = hover.getStyle("visibility");
+						// only set property once
+						if (hovering && visible != "visible") {
+							hover.setStyle("visibility", "visible");
+						} else if (!hovering && visible == "visible") {
+							hover.setStyle("visibility", "hidden");
+						}
 					}, 
 					drop: function(files) {
 						hover.setStyle("visibility", "hidden");
-						Y.log("Files Dropped");
-						Y.log(files);
-						that._filesAdded(files);
+						that._addFilesToList(files);
 					}
 				}, 	function() {});
 			}
@@ -531,15 +547,14 @@ Y.extend(Uploader, Y.Widget, {
 	 * @protected
 	 */
 	_initHead : function () {
-		var cb	 = this.get(CONTENT_BOX),
+		var node,
 			css = Y.merge(Uploader.HEADER_CSS, {
 					str_file : this.get('strings.filename'),
 					str_size : this.get('strings.size')
 				});
 
-		Y.log("init head");
-		this._head = Y.Node.create(Y.substitute(Uploader.HEADER_TEMPLATE, css));
-		cb.insertBefore(this._head,cb.get('firstChild'));
+		node = Y.Node.create(Y.substitute(Uploader.HEADER_TEMPLATE, css));
+		this._contentBox.insertBefore(node, this._contentBox.get('firstChild'));
 	},
 
 	/**
@@ -550,7 +565,6 @@ Y.extend(Uploader, Y.Widget, {
 	 * @protected
 	 */
 	_initBody : function () {
-		Y.log("init body");
 		var id = Y.guid(),
 			css = Y.merge(Uploader.BODY_CSS, { 
 				filelist_id    : id ,
@@ -562,7 +576,7 @@ Y.extend(Uploader, Y.Widget, {
 		this._filelist  = this._body.one("." + css.filelist_class);
 		this._hoverpane = this._body.one("." + css.hover_class);
 
-		this.get(CONTENT_BOX).appendChild(this._body);
+		this._contentBox.appendChild(this._body);
 	},
 
 	/**
@@ -572,7 +586,6 @@ Y.extend(Uploader, Y.Widget, {
 	 * @protected
 	 */
 	_initFoot : function () {
-		Y.log("init footer");
 		var css = Y.merge(Uploader.FOOTER_CSS, {
 			str_add_files : this.get('strings.add_files'),
 			str_upload    : this.get('strings.upload'),
@@ -581,21 +594,22 @@ Y.extend(Uploader, Y.Widget, {
 		});
 
 		this._foot = Y.Node.create(Y.substitute(Uploader.FOOTER_TEMPLATE, css));
-		this.get(CONTENT_BOX).appendChild(this._foot);
+		this._contentBox.appendChild(this._foot);
 	},
 
 	initializer: function(){
-		Y.log("initializer");
 		this.publish(FILE_ADDED);    // 1 file added
 		this.publish(FILE_REMOVED);  // 1 file removed
 		this.publish(FILES_CHANGED); // after files added or removed
 	},
 			  
 	destructor: function(){
-		//Y.log("destructor");
 	},
 	
 	renderUI: function(){
+		// this widget's outer most box
+		this._contentBox = this.get(CONTENT_BOX);
+
 		this._initHead();
 		this._initBody();
 		this._initFoot();
@@ -606,7 +620,6 @@ Y.extend(Uploader, Y.Widget, {
 	 * @method bindUI
 	 */
 	bindUI: function(){
-		Y.log("bind ui: " + this._filelist);
 		var that = this;
 
 		this.after(FILE_ADDED, this._fileAddedEvent, this);
@@ -626,7 +639,6 @@ Y.extend(Uploader, Y.Widget, {
 	},
 	
 	syncUI: function(){
-		Y.log("syncUI");
 	}
 
 });
