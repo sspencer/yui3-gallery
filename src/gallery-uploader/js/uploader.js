@@ -169,6 +169,7 @@ Uploader.ATTRS = {
 			size:			 "Size",
 			upload_complete: "Upload Complete!",
 			add_files:		 "Add Files...",
+			drop_files:      "Drop Files",
 			upload:			 "Upload",
 			total:			 "Total:",
 			size_b:			 " B",
@@ -179,6 +180,21 @@ Uploader.ATTRS = {
 		}
 	}
 };
+
+/**
+ * Markup template used to generate the DOM structure for a file.  A file
+ * consists of a name, size and delete icon.
+ *
+ * @property Uploader.ENTRY_TEMPLATE
+ * @type String
+ * @static
+ */
+Uploader.ENTRY_TEMPLATE =
+	'<div id="{str_guid}" class="{entry_class}">' + 
+		'<div class="{entry_name}">{str_name}</div>' + 
+		'<div class="{entry_size}">{str_size}</div>' + 
+		'<div class="{entry_action}"></div>' + 
+	'</div>';
 
 /**
  * Map (object) of classNames used to populate the placeholders in the
@@ -197,33 +213,6 @@ Uploader.ENTRY_CSS = {
 };
 
 /**
- * Map (object) of classNames used to populate the placeholders in the
- * Uploader.HEADER_TEMPLATE, Uploader.BODY_TEMPLATE, and
- * Uploader.FOOTER_TEMPLATE markup when rendering the Uploader UI.
- *
- * @property Uploader.CHROME_CSS
- * @type Object
- * @static
- */
-Uploader.CHROME_CSS = {
-	hd_class		: getCN(UPLOADER, HEADER),
-	bd_class		: getCN(UPLOADER, BODY),
-	ft_class		: getCN(UPLOADER, FOOTER),
-	bg_class		: getCN(UPLOADER, BG),
-							
-	hd_file_label	: getCN(UPLOADER, HEADER, "file",	LABEL),
-	hd_size_label	: getCN(UPLOADER, HEADER, "size",	LABEL),
-	hd_action_label : getCN(UPLOADER, HEADER, "action", LABEL),
-	
-	ft_files_class	: getCN(UPLOADER, FOOTER, "files"),
-	ft_button_class : getCN(UPLOADER, FOOTER, "button"),
-	ft_size_class	: getCN(UPLOADER, FOOTER, "size"),
-
-	ft_size_label	: getCN(UPLOADER, FOOTER, "size",  LABEL),
-	ft_total_label	: getCN(UPLOADER, FOOTER, "total", LABEL)
-};
-
-/**
  * Markup template used to generate the DOM structure for the header
  * section of the Uploader when it is rendered.
  *
@@ -239,30 +228,54 @@ Uploader.HEADER_TEMPLATE =
 	'</div>';
 
 /**
+ * Map (object) of classNames used to populate the placeholders in the
+ * Uploader.HEADER_TEMPLATE markup when rendering the Uploader UI.
+ *
+ * @property Uploader.HEADER_CSS
+ * @type Object
+ * @static
+ */
+Uploader.HEADER_CSS = {
+	hd_class		: getCN(UPLOADER, HEADER),
+	bg_class		: getCN(UPLOADER, BG),
+	hd_file_label	: getCN(UPLOADER, HEADER, "file",	LABEL),
+	hd_size_label	: getCN(UPLOADER, HEADER, "size",	LABEL),
+	hd_action_label : getCN(UPLOADER, HEADER, "action", LABEL)
+};
+
+/**
  * Markup template used to generate the DOM structure for the Uploader body.
  *
  * @property Uploader.BODY_TEMPLATE
  * @type String
  * @static
  */
-//Uploader.BODY_TEMPLATE = '<div class="yui-uploader-bd-err">Error</div><div class="{bd_class}"></div>';
-Uploader.BODY_TEMPLATE = '<div class="{bd_class}"></div>';
-
+Uploader.BODY_TEMPLATE = 
+	'<div>' +
+		'<div id="{filelist_id}" class="{bd_class} {filelist_class}"></div>'+ 
+		'<div style="visibility:hidden" class="{bd_class} {message_class}"></div>' +
+		'<div style="visibility:hidden" class="{bd_class} {progress_class}"></div>' +
+		'<div style="visibility:visible" class="{bd_class} {hover_class}">' + 
+			'<div class="{hover_text}">{str_drop_files}</div>' + 
+		'</div>' +
+	'</div>';
 
 /**
- * Markup template used to generate the DOM structure for a file.  A file
- * consists of a name, size and delete icon.
+ * Map (object) of classNames used to populate the placeholders in the
+ * Uploader.BODY_TEMPLATE markup when rendering the Uploader UI.
  *
- * @property Uploader.ENTRY_TEMPLATE
- * @type String
+ * @property Uploader.HEADER_CSS
+ * @type Object
  * @static
  */
-Uploader.ENTRY_TEMPLATE =
-	'<div id="{str_guid}" class="{entry_class}">' + 
-		'<div class="{entry_name}">{str_name}</div>' + 
-		'<div class="{entry_size}">{str_size}</div>' + 
-		'<div class="{entry_action}"></div>' + 
-	'</div>';
+Uploader.BODY_CSS = {
+	bd_class		: getCN(UPLOADER, BODY),
+	hover_class     : getCN(UPLOADER, "hover"),
+	hover_text      : getCN(UPLOADER, "hover", "text"),
+	filelist_class	: getCN(UPLOADER, "filelist"), 	// file list
+	message_class	: getCN(UPLOADER, "message"),   // error message
+	progress_class	: getCN(UPLOADER, "progress")   // upload progress
+};
 
 /**
  * Markup template used to generate the DOM structure for the footer
@@ -284,6 +297,18 @@ Uploader.FOOTER_TEMPLATE =
 		'</div>'+
 	'</div>';
 
+Uploader.FOOTER_CSS = {
+	ft_class		: getCN(UPLOADER, FOOTER),
+	bg_class		: getCN(UPLOADER, BG),
+
+	ft_files_class	: getCN(UPLOADER, FOOTER, "files"),
+	ft_button_class : getCN(UPLOADER, FOOTER, "button"),
+	ft_size_class	: getCN(UPLOADER, FOOTER, "size"),
+
+	ft_size_label	: getCN(UPLOADER, FOOTER, "size",  LABEL),
+	ft_total_label	: getCN(UPLOADER, FOOTER, "total", LABEL)
+};
+
 
 
 Y.extend(Uploader, Y.Widget, {
@@ -292,6 +317,12 @@ Y.extend(Uploader, Y.Widget, {
 
 	 // Reference to the Node instance that will house the console messages.
 	_body: null,
+	
+	// maybe need messages and progress too
+	
+	_filelist: null,
+	
+	_hoverpane: null,
 
 	// Reference to the Node instance containing the footer contents.
 	_foot: null,
@@ -385,13 +416,13 @@ Y.extend(Uploader, Y.Widget, {
 
 		
 		// add file to ui
-		var info = Y.merge(Uploader.ENTRY_CSS, {
+		var css = Y.merge(Uploader.ENTRY_CSS, {
 			str_guid : e.file.id,
 			str_name : e.file.name,
 			str_size : this.getSizeInBytes(e.file.size)
 		});
 
-		this._body.append(Y.substitute(Uploader.ENTRY_TEMPLATE, info));
+		this._filelist.append(Y.substitute(Uploader.ENTRY_TEMPLATE, css));
 	},
 
 	// TODO - remove me, for dbg only
@@ -443,7 +474,7 @@ Y.extend(Uploader, Y.Widget, {
 
 	// user clicked in uploader body - see if click is on delete button
 	_fileClickEvent: function(e) {
-		var node = e.target, cn = node.get("className"), index, i;
+		var node = e.target, cn = node.get("className"), index;
 
 		// clicked on delete action
 		if (cn === Uploader.ENTRY_CSS.entry_action) {
@@ -463,6 +494,7 @@ Y.extend(Uploader, Y.Widget, {
 		}
 	},
 
+
 	/**
 	 * Attach BrowserPlus specific events to UI after BrowserPlus has been initialized.
 	 *
@@ -470,9 +502,26 @@ Y.extend(Uploader, Y.Widget, {
 	 * @protected
 	 */
 	 _binder: function() {
-		//Y.log("internal binder called!!" + this);
+		var hover = this._hoverpane, id = this._filelist.get("id"), that = this;
+
 		this.get(CONTENT_BOX).query('#add_button').on("click", this._fileBrowser,this);
-		this._body.on("click", this._fileClickEvent, this);
+		this._filelist.on("click", this._fileClickEvent, this);
+
+		BrowserPlus.DragAndDrop.AddDropTarget({ id: id}, function (r) {
+			if (r.success) {
+				BrowserPlus.DragAndDrop.AttachCallbacks({id: id, 
+					hover: function(hovering) {
+						hover.setStyle("visibility", hovering ? "visible" : "hidden");
+					}, 
+					drop: function(files) {
+						hover.setStyle("visibility", "hidden");
+						Y.log("Files Dropped");
+						Y.log(files);
+						that._filesAdded(files);
+					}
+				}, 	function() {});
+			}
+		});
 	},
 
 	/**
@@ -483,13 +532,13 @@ Y.extend(Uploader, Y.Widget, {
 	 */
 	_initHead : function () {
 		var cb	 = this.get(CONTENT_BOX),
-			info = Y.merge(Uploader.CHROME_CSS, {
-						str_file : this.get('strings.filename'),
-						str_size : this.get('strings.size')
-					});
+			css = Y.merge(Uploader.HEADER_CSS, {
+					str_file : this.get('strings.filename'),
+					str_size : this.get('strings.size')
+				});
 
-		//Y.log("init head");
-		this._head = Y.Node.create(Y.substitute(Uploader.HEADER_TEMPLATE, info));
+		Y.log("init head");
+		this._head = Y.Node.create(Y.substitute(Uploader.HEADER_TEMPLATE, css));
 		cb.insertBefore(this._head,cb.get('firstChild'));
 	},
 
@@ -501,8 +550,18 @@ Y.extend(Uploader, Y.Widget, {
 	 * @protected
 	 */
 	_initBody : function () {
-		//Y.log("init body");
-		this._body = Y.Node.create(Y.substitute(Uploader.BODY_TEMPLATE, Uploader.CHROME_CSS));
+		Y.log("init body");
+		var id = Y.guid(),
+			css = Y.merge(Uploader.BODY_CSS, { 
+				filelist_id    : id ,
+				str_drop_files : this.get('strings.drop_files')
+			});
+
+		this._body = Y.Node.create(Y.substitute(Uploader.BODY_TEMPLATE, css));
+
+		this._filelist  = this._body.one("." + css.filelist_class);
+		this._hoverpane = this._body.one("." + css.hover_class);
+
 		this.get(CONTENT_BOX).appendChild(this._body);
 	},
 
@@ -513,21 +572,20 @@ Y.extend(Uploader, Y.Widget, {
 	 * @protected
 	 */
 	_initFoot : function () {
-		//Y.log("init footer");
-		var info = Y.merge(Uploader.CHROME_CSS, {
-						str_add_files	  : this.get('strings.add_files'),
-						str_upload : this.get('strings.upload'),
-						str_total  : this.get('strings.total'),
-						str_size   : '0' + this.get('strings.size_kb')
-					});
+		Y.log("init footer");
+		var css = Y.merge(Uploader.FOOTER_CSS, {
+			str_add_files : this.get('strings.add_files'),
+			str_upload    : this.get('strings.upload'),
+			str_total     : this.get('strings.total'),
+			str_size      : '0' + this.get('strings.size_kb')
+		});
 
-		this._foot = Y.Node.create(Y.substitute(Uploader.FOOTER_TEMPLATE, info));
-
+		this._foot = Y.Node.create(Y.substitute(Uploader.FOOTER_TEMPLATE, css));
 		this.get(CONTENT_BOX).appendChild(this._foot);
 	},
 
 	initializer: function(){
-		//Y.log("initializer");
+		Y.log("initializer");
 		this.publish(FILE_ADDED);    // 1 file added
 		this.publish(FILE_REMOVED);  // 1 file removed
 		this.publish(FILES_CHANGED); // after files added or removed
@@ -548,7 +606,7 @@ Y.extend(Uploader, Y.Widget, {
 	 * @method bindUI
 	 */
 	bindUI: function(){
-		//Y.log("bind ui");
+		Y.log("bind ui: " + this._filelist);
 		var that = this;
 
 		this.after(FILE_ADDED, this._fileAddedEvent, this);
@@ -568,7 +626,7 @@ Y.extend(Uploader, Y.Widget, {
 	},
 	
 	syncUI: function(){
-		//Y.log("syncUI");
+		Y.log("syncUI");
 	}
 
 });

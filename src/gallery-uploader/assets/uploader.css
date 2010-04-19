@@ -85,24 +85,43 @@
     left: 0px;
     right:0px;
     bottom:32px;
+}
+
+.yui-uploader-filelist {
     overflow-y:auto;
     overflow-x:hidden;
 }
-/*
-.yui-uploader-bd-err {
-    position: absolute;
-    top: 16px;
-    left: 0px;
-    right:0px;
-    bottom:32px;
-    background:#FFA6E3;
-    overflow-y:hidden;
-    overflow-x:hidden;
+
+.yui-uploader-hover {
+    background:#FFC;
 	filter:alpha(opacity=50);
 	opacity: 0.5;
-    display:none;
+/*    visibility:hidden;*/
 }
-*/
+
+.yui-uploader-hover-text {
+    position:absolute;
+    top:40%;
+    left:0px;
+    right:0px;
+    text-align:center;
+    font-size: 14pt;
+}
+
+.yui-uploader-message {
+    background:#FFA6E3;
+	filter:alpha(opacity=50);
+	opacity: 0.5;
+    visibility:hidden;
+}
+
+.yui-uploader-progress {
+    background:#def;
+	filter:alpha(opacity=50);
+	opacity: 0.5;
+    visibility:hidden;
+}
+
 .yui-uploader-ft {
     border-top:1px solid #bbb;
     width:100%;
