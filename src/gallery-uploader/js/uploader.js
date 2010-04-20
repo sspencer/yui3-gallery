@@ -29,14 +29,21 @@ var getCN = Y.ClassNameManager.getClassName,
 
 
 	// event names
-	FILE_ADDED     = "FileAdded",	  
-	FILE_REMOVED   = "FileRemoved",
-	//FILE_UPLOADED  = "FileUploaded",
-	//FILE_PROGRESS  = "FileProgress",
+	FILE_ADDED     = "fileAdded",	  
+	FILE_REMOVED   = "fileRemoved",
+	//FILE_UPLOADED  = "fileUploaded",
+	//FILE_PROGRESS  = "fileProgress",
 
-	FILES_CHANGED  = "FilesChanged",
-	//FILES_PROGRESS = "FilesProgress", // percentage of all total
-	//FILES_UPLOADED = "FilesUploaded", // sent after all files uploaded
+	FILES_CHANGED  = "filesChanged",
+	//FILES_PROGRESS = "filesProgress", // percentage of all total
+	//FILES_UPLOADED = "filesUploaded", // sent after all files uploaded
+	
+	// hmm ... also include transformation events
+	//   resizeStart resizeProgress resizeEnd
+	//   archiveStart archiveProgress archiveEnd
+	// OR make it a part of overall progress
+	//   need a uploadStart type event that could be prevented just in case 
+	//   after all transoformations the filesize is too big 
 
 	// yui uploader events:
 	// http://developer.yahoo.com/yui/uploader/
@@ -114,6 +121,12 @@ Uploader.ATTRS = {
 		validator: Y.isNumber
 	},
 	
+	// maxHeight - if uploading image and > 0, resize
+	// maxWidth
+	// compress
+	// fieldName - The name of the variable in the POST request containing the file data. "Filedata" by default.
+	// vars <Object> The object containing variables to be sent in the same request as the file upload.
+
 	/**
      * @description An array of mimeTypes for which the selected files will be filtered
      *
@@ -405,18 +418,38 @@ Y.extend(Uploader, Y.Widget, {
 		this.fire(FILES_CHANGED);
 	},
 	
-	disable: function() {
-		Uploader.superclass.disable.call(this);
-		this._contentBox.query('#add_button').set("disabled", true);
-		this._contentBox.query('#upload_button').set("disabled", true);
+	/**
+	 * Set the enabled state of the Add Files button.
+	 */
+	enableAddButton: function(enabled) {
+		this._contentBox.query('#add_button').set("disabled", !enabled);
 	},
 
+	/**
+	 * Set the enabled state of the Upload button.
+	 */
+	enableUploadButton: function(enabled) {
+		this._contentBox.query('#upload_button').set("disabled", !enabled);
+	},
+
+	/**
+	 * Disable the Uploader widget.
+	 */
+	disable: function() {
+		Uploader.superclass.disable.call(this);
+		this.enableAddButton(false);
+		this.enableUploadButton(false);
+	},
+
+	/**
+	 * Enable the Uploader widget.
+	 */
 	enable: function() {
 		var numfiles = this.get("files").length;
 
 		Uploader.superclass.enable.call(this);
-		this._contentBox.query('#add_button').set("disabled", false);
-		this._contentBox.query('#upload_button').set("disabled", (numfiles < 1));
+		this.enableAddButton(true);
+		this.enableUploadButton(numfiles > 0);
 	},
 	
 	// http://developer.yahoo.com/yui/docs/YAHOO.widget.Uploader.html
@@ -518,7 +551,7 @@ Y.extend(Uploader, Y.Widget, {
 		var index = this._getFileIndex(e.file.id);
 		if (index !== -1) {
 			this.get("files").splice(index, 1); // changes array in place
-			Y.one(ID+e.file.id).remove(); // remove from UI
+			Y.one("#"+e.file.id).remove(); // remove from UI
 		}
 	},
 
@@ -527,7 +560,8 @@ Y.extend(Uploader, Y.Widget, {
 		var i, size=0, files = this.get("files"), numfiles = files.length;
 
 		// only set enabled button when there are files in list to upload
-		this._contentBox.query('#upload_button').set("disabled", (numfiles < 1));
+		this.enableUploadButton(numfiles > 1);
+
 
 		// recalculate total size
 		for(i = 0; i < numfiles; i++) {
@@ -551,9 +585,8 @@ Y.extend(Uploader, Y.Widget, {
 
 	_uploadFiles: function(e) {
 		this.set("isUploading", true);
-		//this.printfiles();
-		//alert("Upload files printed to console");
-		this.clearFileList();
+		this.printfiles();
+		alert("Upload files printed to console");
 	},
 	
 	// return the nearest ancestor (including the given node) with the specified className
