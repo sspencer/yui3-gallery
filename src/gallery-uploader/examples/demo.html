@@ -4,12 +4,20 @@
     <meta http-equiv="Content-type" content="text/html; charset=utf-8" />
     <title>BrowserPlus File Uploader</title>
     <link rel="stylesheet" href="../assets/uploader.css" type="text/css" charset="utf-8" />
+	<style type="text/css" media="screen">
+		.buttons {margin:20px;}
+	</style>
 </head>
 <body>
     <div id="main">
         <div id="demo" class="sec">
             <h2>YUI3 Gallery: BrowserPlus File Uploader Demo</h2>
             <div class="foo"></div>
+			<div class="buttons">
+				<button id="clear_files">Clear Files</button>
+				<button id="enable_uploader">Enable Uploader</button>
+				<button id="disable_uploader">Disable Uploader</button>
+			</div>
         </div>
     </div>
 </body>
@@ -17,8 +25,20 @@
 <script src="http://yui.yahooapis.com/combo?3.0.0/build/yui/yui.js"></script>
 <script src="../build_tmp/gallery-uploader-debug.js"></script>
 <script>
-    YUI().use('gallery-uploader', function(Y) {
-        new Y.BP.Uploader({contentBox: 'div.foo', width: "400px", height: "200px"}).render();
-    });
+YUI().use('gallery-uploader', function(Y) {
+	var Uploader = new Y.BP.Uploader({contentBox: 'div.foo', width: "400px", height: "200px"}).render();
+
+	Y.on("click", function(){
+		Uploader.clearFileList();
+	}, "#clear_files");
+
+	Y.on("click", function(){
+		Uploader.enable();
+	}, "#enable_uploader");
+
+	Y.on("click", function(){
+		Uploader.disable();
+	}, "#disable_uploader");
+});
 </script>
 </html>

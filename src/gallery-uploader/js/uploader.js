@@ -27,6 +27,7 @@ var getCN = Y.ClassNameManager.getClassName,
 	ENTRY  = "entry",
 	BG     = "bg",
 
+
 	// event names
 	FILE_ADDED     = "FileAdded",	  
 	FILE_REMOVED   = "FileRemoved",
@@ -37,6 +38,9 @@ var getCN = Y.ClassNameManager.getClassName,
 	//FILES_PROGRESS = "FilesProgress", // percentage of all total
 	//FILES_UPLOADED = "FilesUploaded", // sent after all files uploaded
 
+	// yui uploader events:
+	// http://developer.yahoo.com/yui/uploader/
+	// uploadStart, uploadProgress, uploadCancel, uploadComplete, uploadCompleteData, uploadError
 
 	MB = 1024*1024,
 	
@@ -85,6 +89,18 @@ Uploader.NAME = UPLOADER;
  */
 Uploader.ATTRS = {
 	
+	/**
+	 * Allows simultaneous uploads when uploading more than 1 file.
+	 * 
+	 * @attribute allowSimultaneousUploading
+	 * @default false
+	 * @type Boolean
+	 */
+	allowSimultaneousUploading: {
+		value: false,
+		validator: Y.isBoolean
+	},
+
 	/**
 	 * Maximum size in bytes of a single file.	Default is 2MB.	 Set size to 0 or 
 	 * less for no limit.
@@ -136,6 +152,28 @@ Uploader.ATTRS = {
 		validator: Y.Lang.isArray
 	},
 	
+	/**
+	 * The URL of the upload script on the server.  If this value is not set, 
+	 * not files will be uploaded.
+	 * 
+	 * @attribute url
+	 * @default null
+	 * @type String
+	 */
+	url: {
+		value: null
+	},
+
+	/**
+	 * An optional flat data object (name/value strings) that is posted with each file uploaded.  
+	 * This may be set during the uploadStart event so you can gather data from a form before
+	 * the files are uploaded.
+	 */
+	data: {
+		value:null,
+		validator: Y.Lang.isObject
+	},
+
 	/**
 	 * Returns true when files are actively being uploaded.
 	 * @attribute isUploading
@@ -350,6 +388,49 @@ Y.extend(Uploader, Y.Widget, {
 		}
 	},
 
+	/**
+	 * Clears the list of files queued for upload.
+	 */
+	clearFileList: function() {
+		if (this.get("disabled")) {return;}
+		
+		var len = this.get("files").length;
+
+		// remove file entries from ui
+		this._filelist.all("." + Uploader.ENTRY_CSS.entry_class).remove();
+
+		// remove files entries array
+		this.get("files").splice(0, len); 
+
+		this.fire(FILES_CHANGED);
+	},
+	
+	disable: function() {
+		Uploader.superclass.disable.call(this);
+		this._contentBox.query('#add_button').set("disabled", true);
+		this._contentBox.query('#upload_button').set("disabled", true);
+	},
+
+	enable: function() {
+		var numfiles = this.get("files").length;
+
+		Uploader.superclass.enable.call(this);
+		this._contentBox.query('#add_button').set("disabled", false);
+		this._contentBox.query('#upload_button').set("disabled", (numfiles < 1));
+	},
+	
+	// http://developer.yahoo.com/yui/docs/YAHOO.widget.Uploader.html
+	// cancel - cancel one or all files from uploading
+	// removeFile - removes the specified file from the upload queue.
+	// setAllowLogging(boolean)
+	// setAllowMultipleFiles(boolean)
+	// setFileFilters
+	// setSimUploadLimit(1-5 ) - sets the number of simultaneous uploads
+	// upload(fileID,...)
+	// uploadAll()
+	// uploadThese()
+
+
 	// return index of file indentified by 'id' or return -1
 	_getFileIndex: function(id) {
 		var i, len, files = this.get("files");
@@ -437,7 +518,7 @@ Y.extend(Uploader, Y.Widget, {
 		var index = this._getFileIndex(e.file.id);
 		if (index !== -1) {
 			this.get("files").splice(index, 1); // changes array in place
-			Y.one("#"+e.file.id).remove(); // remove from UI
+			Y.one(ID+e.file.id).remove(); // remove from UI
 		}
 	},
 
@@ -458,6 +539,7 @@ Y.extend(Uploader, Y.Widget, {
 
 	/** User clicked Add Files... BrowserPlus.OpenBrowseDialog classed */
 	_openFileDialog: function(e) {
+		if (this.get("disabled")) {return;}
 		var that = this;
 
 		YAHOO.bp.FileBrowse.OpenBrowseDialog({}, function(r) {
@@ -468,8 +550,10 @@ Y.extend(Uploader, Y.Widget, {
 	},
 
 	_uploadFiles: function(e) {
-		this.printfiles();
-		alert("Upload files printed to console");
+		this.set("isUploading", true);
+		//this.printfiles();
+		//alert("Upload files printed to console");
+		this.clearFileList();
 	},
 	
 	// return the nearest ancestor (including the given node) with the specified className
@@ -484,6 +568,8 @@ Y.extend(Uploader, Y.Widget, {
 
 	// user clicked in uploader body - see if click is on delete button
 	_fileClickEvent: function(e) {
+		if (this.get("disabled")) {return;}
+
 		var node = e.target, cn = node.get("className"), index;
 
 		// clicked on delete action
@@ -519,10 +605,13 @@ Y.extend(Uploader, Y.Widget, {
 
 		this._filelist.on("click", this._fileClickEvent, this);
 
+
 		BrowserPlus.DragAndDrop.AddDropTarget({ id: id}, function (r) {
 			if (r.success) {
 				BrowserPlus.DragAndDrop.AttachCallbacks({id: id, 
 					hover: function(hovering) {
+						if (that.get("disabled")) {return;}
+
 						var visible = hover.getStyle("visibility");
 						// only set property once
 						if (hovering && visible != "visible") {
@@ -532,6 +621,7 @@ Y.extend(Uploader, Y.Widget, {
 						}
 					}, 
 					drop: function(files) {
+						if (that.get("disabled")) {return;}
 						hover.setStyle("visibility", "hidden");
 						that._addFilesToList(files);
 					}
