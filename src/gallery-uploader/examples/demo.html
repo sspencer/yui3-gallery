@@ -26,19 +26,48 @@
 <script src="../build_tmp/gallery-uploader-debug.js"></script>
 <script>
 YUI().use('gallery-uploader', function(Y) {
-	var Uploader = new Y.BP.Uploader({contentBox: 'div.foo', width: "400px", height: "200px"}).render();
+	var up = new Y.BP.Uploader({
+		contentBox: 'div.foo', 
+		width: "400px", 
+		height: "200px", 
+		archiveFormat: 'tar-bzip2',
+		resizeWidth:400}).render();
 
 	Y.on("click", function(){
-		Uploader.clearFileList();
+		up.clearFileList();
 	}, "#clear_files");
 
 	Y.on("click", function(){
-		Uploader.enable();
+		up.enable();
 	}, "#enable_uploader");
 
 	Y.on("click", function(){
-		Uploader.disable();
+		up.disable();
 	}, "#disable_uploader");
+	
+
+	var events = [
+		"fileAdded", "fileRemoved", "filesChanged", 
+		"resizeStart", "resizeComplete", "resizeFileStart", "resizeFileComplete",
+		"archiveStart", "archiveProgress", "archiveComplete"
+	];
+
+	Y.Array.each(events, function(v){
+		up.on(v, function(e) {
+			var i, arr=[];
+			for (i = 1; i < arguments.length; i++) {
+				arr.push("["+ i +"]="+arguments[i]);
+			}
+
+			if (arguments.length > 1) {
+				Y.log("Event: " + e.type + " (" + arr.join(",") + ")");
+			} else {
+				Y.log("Event: " + e.type);				
+			}
+			
+		});
+	});
+
 });
 </script>
 </html>

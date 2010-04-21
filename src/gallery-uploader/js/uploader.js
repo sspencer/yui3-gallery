@@ -25,25 +25,56 @@ var getCN = Y.ClassNameManager.getClassName,
 	BODY   = "bd",
 	FOOTER = "ft",
 	ENTRY  = "entry",
-	BG     = "bg",
+	BG	   = "bg",
 
 
-	// event names
-	FILE_ADDED     = "fileAdded",	  
-	FILE_REMOVED   = "fileRemoved",
-	//FILE_UPLOADED  = "fileUploaded",
-	//FILE_PROGRESS  = "fileProgress",
+	// EVENT NAMES
 
-	FILES_CHANGED  = "filesChanged",
+	// File List
+	FILE_ADDED           = "fileAdded",	  
+	FILE_REMOVED         = "fileRemoved",
+	FILES_CHANGED        = "filesChanged",
+	
+	// Image Resize
+	RESIZE_START         = "resizeStart",
+	RESIZE_COMPLETE      = "resizeComplete",
+	RESIZE_FILE_START    = "resizeFileStart",
+	RESIZE_FILE_COMPLETE = "resizeFileComplete",	
+
+	// document events like this??  found in animation.js
+    //    /**
+    //    * @event tween
+    //    * @description fires every frame of the animation.
+    //    * @param {Event} ev The tween event.
+    //    * @type Event.Custom
+    //    */
+    //    TWEEN = 'tween',
+
+
+	// Archive Events
+	ARCHIVE_START		 = "archiveStart",
+	ARCHIVE_PROGRESS	 = "archiveProgress",
+	ARCHIVE_COMPLETE	 = "archiveComplete",
+
+	// Uploading
+	UPLOAD_START         = "uploadStart",
+	UPLOAD_PROGRESS      = "uploadProgress",
+	UPLOAD_FILE_START    = "uploadFileStart",
+	UPLOAD_FILE_COMPLETE = "uploadFileComplete",
+	UPLOAD_COMPLETE      = "uploadComplete",
+
+	//FILE_UPLOADED	 = "fileUploaded",
+	//FILE_PROGRESS	 = "fileProgress",
+
 	//FILES_PROGRESS = "filesProgress", // percentage of all total
 	//FILES_UPLOADED = "filesUploaded", // sent after all files uploaded
 	
 	// hmm ... also include transformation events
-	//   resizeStart resizeProgress resizeEnd
-	//   archiveStart archiveProgress archiveEnd
+	//	 resizeStart resizeProgress resizeEnd
+	//	 archiveStart archiveProgress archiveEnd
 	// OR make it a part of overall progress
-	//   need a uploadStart type event that could be prevented just in case 
-	//   after all transoformations the filesize is too big 
+	//	 need a uploadStart type event that could be prevented just in case 
+	//	 after all transoformations the filesize is too big 
 
 	// yui uploader events:
 	// http://developer.yahoo.com/yui/uploader/
@@ -57,6 +88,7 @@ var getCN = Y.ClassNameManager.getClassName,
 		{ service: "DragAndDrop", version: "2" },
 		{ service: "Directory", version: "2" },
 		{ service: "FileBrowse", version: "2" },
+		{ service: "ImageAlter", version: "4" },
 		{ service: "Archiver", version: "1" }
 	];
 
@@ -97,18 +129,6 @@ Uploader.NAME = UPLOADER;
 Uploader.ATTRS = {
 	
 	/**
-	 * Allows simultaneous uploads when uploading more than 1 file.
-	 * 
-	 * @attribute allowSimultaneousUploading
-	 * @default false
-	 * @type Boolean
-	 */
-	allowSimultaneousUploading: {
-		value: false,
-		validator: Y.isBoolean
-	},
-
-	/**
 	 * Maximum size in bytes of a single file.	Default is 2MB.	 Set size to 0 or 
 	 * less for no limit.
 	 *
@@ -118,22 +138,86 @@ Uploader.ATTRS = {
 	 */
 	maxFileSize: {
 		value: 2*MB,
-		validator: Y.isNumber
+		validator: Y.Lang.isNumber
 	},
 	
-	// maxHeight - if uploading image and > 0, resize
-	// maxWidth
+	/**
+	 * Maximum width of an uploaded image.	By default, uploaded images are not resized.  Set this
+	 * value to non-zero to restrict the size of an image.
+	 *
+	 * @attribute resizeWidth
+	 * @type Number
+	 * @default 0 (don't scale image)
+	 */
+	resizeWidth: {
+		value: 0,
+		validator: Y.Lang.isNumber
+	},
+
+	/**
+	 * Maximum height of an uploaded image.	By default, uploaded images are not resized.  Set this
+	 * value to non-zero to restrict the size of an image.
+	 *
+	 * @attribute resizeHeight
+	 * @type Number
+	 * @default 0 (don't scale image)
+	 */
+	resizeHeight: {
+		value: 0,
+		validator: Y.Lang.isNumber
+	},
+
+	/**
+	 * The quality of the scaled image (0-100).	 Lower qualities result in faster operations and 
+	 * smaller file sizes, at the cost of image quality.
+	 * @attribute quality
+	 * @type Number
+	 * @default 80
+	 */
+	resizeQuality: {
+		value: 80,
+		validator: function(val) {return (Y.Lang.isNumber(val) && val >= 0 && val <= 100);}
+	},
+	
+	
+	/**
+	 * Set the optional archive + compression format.  When set, all files will be archived
+	 * and compressed (depending on the format) into a single file before upload.  Used
+	 * in conjunction with image resizing, upload speed should improve with less bits
+	 * sent over the wire.  Valid values: ('tar', 'tar-bzip2', 'tar-gzip', 'zip', 'zip-uncompressed').
+	 *
+	 * @attribute archiveFormat
+	 * @type String
+	 * @default null
+	 */
+	archiveFormat: {
+		value: null,
+		validator: function(val) {
+			switch(val) {
+				case 'zip':
+				case 'zip-uncompressed':
+				case 'tar':
+				case 'tar-gzip':
+				case 'tar-bzip2':
+					return true;
+				default:
+					return false;
+			}
+		}
+	},
+
+
 	// compress
 	// fieldName - The name of the variable in the POST request containing the file data. "Filedata" by default.
 	// vars <Object> The object containing variables to be sent in the same request as the file upload.
 
 	/**
-     * @description An array of mimeTypes for which the selected files will be filtered
-     *
-     * @attribute mimeTypes
-     * @default []
-     * @type Array
-     */
+	 * @description An array of mimeTypes for which the selected files will be filtered
+	 *
+	 * @attribute mimeTypes
+	 * @default []
+	 * @type Array
+	 */
 	mimeTypes: {
 		value: [],
 		validator: Y.Lang.isArray
@@ -166,7 +250,7 @@ Uploader.ATTRS = {
 	},
 	
 	/**
-	 * The URL of the upload script on the server.  If this value is not set, 
+	 * The URL of the upload script on the server.	If this value is not set, 
 	 * not files will be uploaded.
 	 * 
 	 * @attribute url
@@ -188,30 +272,6 @@ Uploader.ATTRS = {
 	},
 
 	/**
-	 * Returns true when files are actively being uploaded.
-	 * @attribute isUploading
-	 * @readOnly
-	 * @default false
-	 * @type Boolean
-	 */
-	isUploading: {
-		value: false,
-		readOnly: true
-	},
-
-	/**
-	 * Returns the current file upload percentage.
-	 * @attribute files
-	 * @readOnly
-	 * @default 0
-	 * @type Number
-	 */
-	progress: {
-		value: 0,
-		readOnly: true
-	},
-
-	/**
 	 * The localizable strings for the Uploader.
 	 */
 	strings: {
@@ -220,7 +280,7 @@ Uploader.ATTRS = {
 			size:			 "Size",
 			upload_complete: "Upload Complete!",
 			add_files:		 "Add Files...",
-			drop_files:      "Drop Files",
+			drop_files:		 "Drop Files",
 			upload:			 "Upload",
 			total:			 "Total:",
 			size_b:			 " B",
@@ -321,11 +381,11 @@ Uploader.BODY_TEMPLATE =
  */
 Uploader.BODY_CSS = {
 	bd_class		: getCN(UPLOADER, BODY),
-	hover_class     : getCN(UPLOADER, "hover"),
-	hover_text      : getCN(UPLOADER, "hover", "text"),
-	filelist_class	: getCN(UPLOADER, "filelist"), 	// file list
-	message_class	: getCN(UPLOADER, "message"),   // error message
-	progress_class	: getCN(UPLOADER, "progress")   // upload progress
+	hover_class		: getCN(UPLOADER, "hover"),
+	hover_text		: getCN(UPLOADER, "hover", "text"),
+	filelist_class	: getCN(UPLOADER, "filelist"),	// file list
+	message_class	: getCN(UPLOADER, "message"),	// error message
+	progress_class	: getCN(UPLOADER, "progress")	// upload progress
 };
 
 /**
@@ -339,7 +399,7 @@ Uploader.BODY_CSS = {
 Uploader.FOOTER_TEMPLATE =
 	'<div class="{ft_class} {bg_class}">'+
 		'<div class="{ft_button_class}">' +
-			'<button id="add_button" type="button">{str_add_files}</button>'+
+			'<button disabled id="add_button" type="button">{str_add_files}</button>'+
 			'<button disabled id="upload_button" type="button">{str_upload}</button>'+
 		'</div>'+
 		'<div class="{ft_size_class}">' +
@@ -383,7 +443,7 @@ Y.extend(Uploader, Y.Widget, {
 	
 	
 	/** Convert number of bytes into human readable string (ala "2 MB") */
-	getSizeInBytes: function(size) {
+	sizeInBytes: function(size) {
 		var i, units = [
 			this.get("strings.size_b"),
 			this.get("strings.size_kb"),
@@ -405,7 +465,7 @@ Y.extend(Uploader, Y.Widget, {
 	 * Clears the list of files queued for upload.
 	 */
 	clearFileList: function() {
-		if (this.get("disabled")) {return;}
+		if (this.get("disabledInput")) {return;}
 		
 		var len = this.get("files").length;
 
@@ -437,6 +497,7 @@ Y.extend(Uploader, Y.Widget, {
 	 */
 	disable: function() {
 		Uploader.superclass.disable.call(this);
+		this.set("disabledInput", true);
 		this.enableAddButton(false);
 		this.enableUploadButton(false);
 	},
@@ -446,7 +507,7 @@ Y.extend(Uploader, Y.Widget, {
 	 */
 	enable: function() {
 		var numfiles = this.get("files").length;
-
+		this.set("disabledInput", false);
 		Uploader.superclass.enable.call(this);
 		this.enableAddButton(true);
 		this.enableUploadButton(numfiles > 0);
@@ -505,7 +566,7 @@ Y.extend(Uploader, Y.Widget, {
 				file = files[i];
 
 				// don't add duplicate files
- 				if (that._getHandleIndex(file.BrowserPlusHandleID) === -1) {
+				if (that._getHandleIndex(file.BrowserPlusHandleID) === -1) {
 					// ignore directories, only care about files now
 					if (file.mimeType[0] === "application/x-folder") { continue; }
 
@@ -533,7 +594,7 @@ Y.extend(Uploader, Y.Widget, {
 		var css = Y.merge(Uploader.ENTRY_CSS, {
 			str_guid : e.file.id,
 			str_name : e.file.name,
-			str_size : this.getSizeInBytes(e.file.size)
+			str_size : this.sizeInBytes(e.file.size)
 		});
 
 		this._filelist.append(Y.substitute(Uploader.ENTRY_TEMPLATE, css));
@@ -560,20 +621,21 @@ Y.extend(Uploader, Y.Widget, {
 		var i, size=0, files = this.get("files"), numfiles = files.length;
 
 		// only set enabled button when there are files in list to upload
-		this.enableUploadButton(numfiles > 1);
+		this.enableUploadButton(numfiles > 0);
 
 
 		// recalculate total size
 		for(i = 0; i < numfiles; i++) {
 			size += files[i].size;
 		}
-		
-		this._foot.one("." + Uploader.FOOTER_CSS.ft_size_label).setContent(this.getSizeInBytes(size));
+
+		this.set("fileSize", size);
+		this._foot.one("." + Uploader.FOOTER_CSS.ft_size_label).setContent(this.sizeInBytes(size));
 	},
 
 	/** User clicked Add Files... BrowserPlus.OpenBrowseDialog classed */
 	_openFileDialog: function(e) {
-		if (this.get("disabled")) {return;}
+		if (this.get("disabledInput")) {return;}
 		var that = this;
 
 		YAHOO.bp.FileBrowse.OpenBrowseDialog({}, function(r) {
@@ -583,10 +645,143 @@ Y.extend(Uploader, Y.Widget, {
 		});
 	},
 
+	/**
+	 * Returns true if file's mimetype matches a known image mime type (matches
+	 * image/gif, image/jpeg, image/pjpeg, image/png)
+	 */
+	_isImage: function(f) {
+		var i;
+		for (i = 0; i < f.mimeType.length; i++) {
+			switch(f.mimeType[i]) {
+				case "image/gif":
+				case "image/jpeg":
+				case "image/pjpeg":
+				case "image/png":
+					return true;
+				default:
+					continue;
+			}
+		}
+		
+		return false;
+	},
+	
+	/**
+	 * Resize single file if it is an image.  To resize an image, the mimeType must be one of
+	 * ("image/gif", "image/jpeg", "image/pjpeg", "image/png") and resizeWidth or resizeHeight must
+	 * be more than 0.
+	*/
+	_resizeImage: function(file, cb) {
+		var maxWidth = this.get("resizeWidth"),
+			maxHeight = this.get("resizeHeight"),
+			quality = this.get("resizeQuality"),
+			that = this;
+
+		if ((maxWidth > 0 || maxHeight > 0) && this._isImage(file)) {
+			// so resize event is only sent when there are images to resize
+			if (this.get("sendResizeStart") === true) {
+				this.fire(RESIZE_START);
+				this.set("sendResizeStart", false);   // so RESIZE_START sent once per upload
+				this.set("sendResizeComplete", true); // so RESIZE_COMPLETE sent at end
+			}
+
+			this.fire(RESIZE_FILE_START, {file: file});
+			BrowserPlus.ImageAlter.transform( 
+				{
+					file : file,
+					quality : quality,
+					actions : [{ scale : { maxwidth	 : maxWidth, maxheight : maxHeight } }]
+				}, 
+				function(res) { 
+					var f = (res.success ? res.value.file : file);
+					that.fire(RESIZE_FILE_COMPLETE, {file: f});
+					cb(f);
+				}
+			);
+		} else {
+			cb(file);
+		}
+	},
+
+	// resize all images
+	_resizeImages: function(filesInList, doneCB) {
+		var i, numfiles = filesInList.length, filesToUpload = [], resizedImageCB;
+
+		resizedImageCB = function(f) {
+			filesToUpload.push(f);
+			if (filesToUpload.length === numfiles) {
+				// this.fire(INT_RESIZED, filesToUpload);
+				doneCB(filesToUpload);
+			}
+		};
+
+		for (i = 0; i < numfiles; i++) {
+			this._resizeImage(filesInList[i], resizedImageCB);
+		}
+	},
+
+	_archiveFiles: function(files, archiveFormat, cb) {
+		var that = this;
+		if (archiveFormat) {
+			this.fire(ARCHIVE_START, this.get("fileSize"));
+			BrowserPlus.Archiver.archive(
+				{
+					files:	files,
+					format: archiveFormat,
+					progressCallback: function(v) {
+						that.fire(ARCHIVE_PROGRESS, v.percent);
+					}
+				},
+				function(res) {
+					var f = (res.success ? res.value.archiveFile : files );
+					that.fire(ARCHIVE_COMPLETE, f.size);
+					cb(f);
+				}
+			);
+		} else {
+			cb(files);
+		}
+	},
+	_uploadImagesResized: function(e) {
+		Y.log("_uploadImagesResized called, cool");
+	},
+
 	_uploadFiles: function(e) {
-		this.set("isUploading", true);
-		this.printfiles();
-		alert("Upload files printed to console");
+		var that = this;
+
+		// disallow user input while uploading
+		this.set("disabledInput", true);
+		this.enableAddButton(false);
+		this.enableUploadButton(false);
+
+		// guarantee RESIZE events are only sent when images are actually resized
+		this.set("sendResizeStart", true);
+		this.set("sendResizeComplete", false);
+		
+		// resize images (only if needed)
+		this._resizeImages(this.get("files"), function(files) {
+
+			// only send if there was a RESIZE_START
+			if (that.get("sendResizeComplete") === true) {
+				that.fire(RESIZE_COMPLETE); 
+			}
+
+			that.fire("upload_resized");
+			// INT_RESIZED
+			// INT_ARCHIVED
+			//
+			
+			// archiveFiles determines whether or not to actually archive files
+			that._archiveFiles(files, that.get("archiveFormat"), function(filesToUpload) {
+				Y.log("Really Upload Files");
+
+				// allow user input again
+				that.set("disabledInput", false);
+				that.enableAddButton(true);
+				that.enableUploadButton(false); // no files, no upload
+				that.clearFileList();
+			});
+		});
 	},
 	
 	// return the nearest ancestor (including the given node) with the specified className
@@ -601,7 +796,7 @@ Y.extend(Uploader, Y.Widget, {
 
 	// user clicked in uploader body - see if click is on delete button
 	_fileClickEvent: function(e) {
-		if (this.get("disabled")) {return;}
+		if (this.get("disabledInput")) {return;}
 
 		var node = e.target, cn = node.get("className"), index;
 
@@ -635,6 +830,8 @@ Y.extend(Uploader, Y.Widget, {
 
 		this._contentBox.query('#add_button').on("click", this._openFileDialog, this);
 		this._contentBox.query('#upload_button').on("click", this._uploadFiles, this);
+		this.enableAddButton(true);
+		this.set("disabledInput", false);
 
 		this._filelist.on("click", this._fileClickEvent, this);
 
@@ -643,7 +840,7 @@ Y.extend(Uploader, Y.Widget, {
 			if (r.success) {
 				BrowserPlus.DragAndDrop.AttachCallbacks({id: id, 
 					hover: function(hovering) {
-						if (that.get("disabled")) {return;}
+						if (that.get("disabledInput")) {return;}
 
 						var visible = hover.getStyle("visibility");
 						// only set property once
@@ -654,11 +851,11 @@ Y.extend(Uploader, Y.Widget, {
 						}
 					}, 
 					drop: function(files) {
-						if (that.get("disabled")) {return;}
+						if (that.get("disabledInput")) {return;}
 						hover.setStyle("visibility", "hidden");
 						that._addFilesToList(files);
 					}
-				}, 	function() {});
+				},	function() {});
 			}
 		});
 	},
@@ -690,13 +887,13 @@ Y.extend(Uploader, Y.Widget, {
 	_initBody : function () {
 		var id = Y.guid(),
 			css = Y.merge(Uploader.BODY_CSS, { 
-				filelist_id    : id ,
+				filelist_id	   : id ,
 				str_drop_files : this.get('strings.drop_files')
 			});
 
 		this._body = Y.Node.create(Y.substitute(Uploader.BODY_TEMPLATE, css));
 
-		this._filelist  = this._body.one("." + css.filelist_class);
+		this._filelist	= this._body.one("." + css.filelist_class);
 		this._hoverpane = this._body.one("." + css.hover_class);
 
 		this._contentBox.appendChild(this._body);
@@ -711,9 +908,9 @@ Y.extend(Uploader, Y.Widget, {
 	_initFoot : function () {
 		var css = Y.merge(Uploader.FOOTER_CSS, {
 			str_add_files : this.get('strings.add_files'),
-			str_upload    : this.get('strings.upload'),
-			str_total     : this.get('strings.total'),
-			str_size      : '0' + this.get('strings.size_kb')
+			str_upload	  : this.get('strings.upload'),
+			str_total	  : this.get('strings.total'),
+			str_size	  : '0' + this.get('strings.size_kb')
 		});
 
 		this._foot = Y.Node.create(Y.substitute(Uploader.FOOTER_TEMPLATE, css));
@@ -721,9 +918,24 @@ Y.extend(Uploader, Y.Widget, {
 	},
 
 	initializer: function(){
-		this.publish(FILE_ADDED);    // 1 file added
-		this.publish(FILE_REMOVED);  // 1 file removed
+		this.publish(FILE_ADDED);	 // 1 file added
+		this.publish(FILE_REMOVED);	 // 1 file removed
 		this.publish(FILES_CHANGED); // after files added or removed
+
+		this.publish(RESIZE_START); 
+		this.publish(RESIZE_FILE_START); 
+		this.publish(RESIZE_FILE_COMPLETE); 
+		this.publish(RESIZE_COMPLETE); 
+		
+		this.publish(ARCHIVE_START);
+		this.publish(ARCHIVE_PROGRESS);
+		this.publish(ARCHIVE_COMPLETE);
+
+		this.publish(UPLOAD_START);
+		this.publish(UPLOAD_PROGRESS);
+		this.publish(UPLOAD_FILE_START);
+		this.publish(UPLOAD_FILE_COMPLETE);
+		this.publish(UPLOAD_COMPLETE);
 	},
 			  
 	destructor: function(){
@@ -749,6 +961,9 @@ Y.extend(Uploader, Y.Widget, {
 		this.after(FILE_REMOVED, this._fileRemovedEvent, this);
 		this.after(FILES_CHANGED, this._filesChangedEvent, this);
 
+		this.on("upload_resized", this._uploadImagesResized, this);
+
+
 		YAHOO.bp.init({},function(init) {
 			if (init.success) {
 				YAHOO.bp.require({services: SERVICES}, function(require) {
@@ -761,7 +976,8 @@ Y.extend(Uploader, Y.Widget, {
 		
 	},
 	
-	syncUI: function(){
+	syncUI: function() {
+		// sync or bind, that is the question
 	}
 
 });
