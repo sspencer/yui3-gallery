@@ -30,7 +30,8 @@ YUI().use('gallery-uploader', function(Y) {
 		contentBox: 'div.foo', 
 		width: "400px", 
 		height: "200px", 
-		archiveFormat: 'tar-bzip2',
+		uploadUrl: "http://browserplus.org/misc/upload.php",
+//		archiveFormat: 'tar-bzip2',
 		resizeWidth:400}).render();
 
 	Y.on("click", function(){
@@ -47,24 +48,31 @@ YUI().use('gallery-uploader', function(Y) {
 	
 
 	var events = [
-		"fileAdded", "fileRemoved", "filesChanged", 
-		"resizeStart", "resizeComplete", "resizeFileStart", "resizeFileComplete",
-		"archiveStart", "archiveProgress", "archiveComplete"
+		// "fileAdded",
+		// "fileRemoved",
+		// "fileChanged",
+		// "resizeStart",
+		// "resizeProgress",
+		// "resizeComplete",
+		// "archiveStart",
+		// "archiveProgress",
+		// "archiveComplete",
+		// "uploadStart",
+		"uploadProgress",
+		// "uploadResponse",
+		// "uploadComplete"
 	];
-
+	
 	Y.Array.each(events, function(v){
 		up.on(v, function(e) {
-			var i, arr=[];
-			for (i = 1; i < arguments.length; i++) {
-				arr.push("["+ i +"]="+arguments[i]);
+			Y.log("Event: " + e.type);
+			if (e.file) {
+				Y.log("  name: " + e.file.name + ", size: " + e.file.size);
 			}
-
-			if (arguments.length > 1) {
-				Y.log("Event: " + e.type + " (" + arr.join(",") + ")");
-			} else {
-				Y.log("Event: " + e.type);				
+			if (e.progress) {
+				if (e.progress.filePercent)  {Y.log("  filePercent:  " + e.progress.filePercent);	}
+				if (e.progress.totalPercent) {Y.log("  totalPercent: " + e.progress.totalPercent);	}
 			}
-			
 		});
 	});
 
