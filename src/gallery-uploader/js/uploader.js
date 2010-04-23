@@ -57,7 +57,7 @@ var getCN = Y.ClassNameManager.getClassName,
 	ARCHIVE_COMPLETE = "archiveComplete",
 
 	// Uploading
-	UPLOAD_START     = "uploadStart",
+	UPLOAD_START     = "uploadStart",   // happens as soon as button is clicked
 	UPLOAD_PROGRESS  = "uploadProgress",
 	UPLOAD_RESPONSE  = "uploadResponse",
 	UPLOAD_COMPLETE  = "uploadComplete",
@@ -66,7 +66,6 @@ var getCN = Y.ClassNameManager.getClassName,
 	INT_CLICKED      = "iUploadClicked",
     INT_RESIZED   	 = "iUploadResized",
     INT_ARCHIVED  	 = "iUploadArchived",
-    INT_UPLOADED  	 = "iUploadUploaded",
 
 
 	MB = 1024*1024,
@@ -80,8 +79,6 @@ var getCN = Y.ClassNameManager.getClassName,
 		{ service: "ImageAlter", version: "4" },
 		{ service: "Archiver", version: "1" }
 	];
-
-
 
 
 /**
@@ -288,18 +285,22 @@ Uploader.ATTRS = {
 	 */
 	strings: {
 		value: {
-			filename:		 "File",
-			size:			 "Size",
-			upload_complete: "Upload Complete!",
-			add_files:		 "Add Files...",
-			drop_files:		 "Drop Files",
-			upload:			 "Upload",
-			total:			 "Total:",
-			size_b:			 " B",
-			size_kb:		 " KB",				   
-			size_mb:		 " MB",
-			size_gb:		 " GB",
-			size_tb:		 " TB"
+			filename:		  "File",
+			size:			  "Size",
+			close:    		  "Close",
+			add_files:		  "Add Files...",
+			drop_files:		  "Drop Files",
+			upload:			  "Upload",
+			total:			  "Total:",
+			size_b:			  " B",
+			size_kb:		  " KB",				   
+			size_mb:		  " MB",
+			size_gb:		  " GB",
+			size_tb:		  " TB",
+			resize_progress:  "Resizing Images",
+			archive_progress: "Compressing Files",
+			upload_progress:  "Uploading Files",
+			upload_complete:   "Upload Complete!"
 		}
 	}
 };
@@ -376,8 +377,16 @@ Uploader.HEADER_CSS = {
 Uploader.BODY_TEMPLATE = 
 	'<div>' +
 		'<div id="{filelist_id}" class="{bd_class} {filelist_class}"></div>'+ 
-		'<div style="visibility:hidden" class="{bd_class} {message_class}"></div>' +
-		'<div style="visibility:hidden" class="{bd_class} {progress_class}"></div>' +
+		'<div style="visibility:hidden" class="{bd_class} {message_class}">' +
+			'<div class="{message_text}"></div>'  +
+			'<div class="{message_close}"><a href="#">{str_close}</a></div>'  +
+		'</div>' +
+		'<div style="visibility:hidden" class="{bd_class} {progress_class}">' + 
+    		'<div class="{progress_bar} {progress_bg}"></div>' +
+			'<div class="{progress_bar} {progress_fg}"></div>' +
+			'<div class="{progress_text}">0%</div>' +
+			'<div class="{progress_close}"><a href="#">{str_close}</a></div>'  +
+		'</div>' +
 		'<div style="visibility:hidden" class="{bd_class} {hover_class}">' + 
 			'<div class="{hover_text}">{str_drop_files}</div>' + 
 		'</div>' +
@@ -392,12 +401,19 @@ Uploader.BODY_TEMPLATE =
  * @static
  */
 Uploader.BODY_CSS = {
-	bd_class		: getCN(UPLOADER, BODY),
-	hover_class		: getCN(UPLOADER, "hover"),
-	hover_text		: getCN(UPLOADER, "hover", "text"),
-	filelist_class	: getCN(UPLOADER, "filelist"),	// file list
-	message_class	: getCN(UPLOADER, "message"),	// error message
-	progress_class	: getCN(UPLOADER, "progress")	// upload progress
+	bd_class	   : getCN(UPLOADER, BODY),
+	hover_class	   : getCN(UPLOADER, "hover"),
+	hover_text	   : getCN(UPLOADER, "hover", "text"),
+	filelist_class : getCN(UPLOADER, "filelist"),
+	message_class  : getCN(UPLOADER, "message"),
+	message_text   : getCN(UPLOADER, "message", "text"),
+	message_close  : getCN(UPLOADER, "message", "close"),
+	progress_class : getCN(UPLOADER, "progress"),
+	progress_bar   : getCN(UPLOADER, "progress", "bar"),	
+	progress_bg	   : getCN(UPLOADER, "progress", "bar", "bg"),
+	progress_fg	   : getCN(UPLOADER, "progress", "bar", "fg"),
+	progress_text  : getCN(UPLOADER, "progress", "bar", "text"),
+	progress_close : getCN(UPLOADER, "progress", "close")
 };
 
 /**
@@ -411,8 +427,8 @@ Uploader.BODY_CSS = {
 Uploader.FOOTER_TEMPLATE =
 	'<div class="{ft_class} {bg_class}">'+
 		'<div class="{ft_button_class}">' +
-			'<button disabled id="add_button" type="button">{str_add_files}</button>'+
-			'<button disabled id="upload_button" type="button">{str_upload}</button>'+
+			'<button disabled class="{add_button}" type="button">{str_add_files}</button>'+
+			'<button disabled class="{upload_button}" type="button">{str_upload}</button>'+
 		'</div>'+
 		'<div class="{ft_size_class}">' +
 			'<span class="{ft_total_label}">{str_total}</span> ' +
@@ -427,6 +443,9 @@ Uploader.FOOTER_CSS = {
 	ft_files_class	: getCN(UPLOADER, FOOTER, "files"),
 	ft_button_class : getCN(UPLOADER, FOOTER, "button"),
 	ft_size_class	: getCN(UPLOADER, FOOTER, "size"),
+
+	add_button      : getCN(UPLOADER, "button", "add"),
+	upload_button   : getCN(UPLOADER, "button", "upload"),
 
 	ft_size_label	: getCN(UPLOADER, FOOTER, "size",  LABEL),
 	ft_total_label	: getCN(UPLOADER, FOOTER, "total", LABEL)
@@ -451,8 +470,19 @@ Y.extend(Uploader, Y.Widget, {
 	_hoverpane: null,
 
 	// error message panel
-	// _messagepane: null, 
+	_messagepane: null,   // Message Pane
+	_messagetext: null,   // Message displayed to user
+	_messageclose: null,  // Close Button
+
+	_progresspane: null,
+	_progressbar: null,
+	_progresstext: null,
 	
+	_addbutton: null,
+	_uploadbutton: null,
+
+	// map event names to user strings
+	_progressStrings: null,
 	
 	/** Convert number of bytes into human readable string (ala "2 MB") */
 	sizeInBytes: function(size) {
@@ -477,8 +507,6 @@ Y.extend(Uploader, Y.Widget, {
 	 * Clears the list of files queued for upload.
 	 */
 	clearFileList: function() {
-		if (this.get("disabledInput")) {return;}
-		
 		var len = this.get("files").length;
 
 		// remove file entries from ui
@@ -490,18 +518,25 @@ Y.extend(Uploader, Y.Widget, {
 		this.fire(FILES_CHANGED);
 	},
 	
+	disableInput: function(b) {
+		this.set("disabledInput", b);
+		this.enableAddButton(!b);
+		this.enableUploadButton(!b && this.get("files").length > 0);
+	},
+	
+
 	/**
 	 * Set the enabled state of the Add Files button.
 	 */
 	enableAddButton: function(enabled) {
-		this._contentBox.query('#add_button').set("disabled", !enabled);
+		this._addbutton.set("disabled", !enabled);
 	},
 
 	/**
 	 * Set the enabled state of the Upload button.
 	 */
 	enableUploadButton: function(enabled) {
-		this._contentBox.query('#upload_button').set("disabled", !enabled || this.get("uploadUrl") === null);
+		this._uploadbutton.set("disabled", !enabled || this.get("uploadUrl") === null);
 	},
 
 	/**
@@ -509,22 +544,28 @@ Y.extend(Uploader, Y.Widget, {
 	 */
 	disable: function() {
 		Uploader.superclass.disable.call(this);
-		this.set("disabledInput", true);
-		this.enableAddButton(false);
-		this.enableUploadButton(false);
+		this.disableInput(true);
 	},
 
 	/**
 	 * Enable the Uploader widget.
 	 */
 	enable: function() {
-		var numfiles = this.get("files").length;
-		this.set("disabledInput", false);
 		Uploader.superclass.enable.call(this);
-		this.enableAddButton(true);
-		this.enableUploadButton(numfiles > 0);
+		this.disableInput(false);
 	},
 	
+	showMessage: function(msg) {
+		this.disableInput(true);
+		this._messagetext.setContent(msg);
+		this._messagepane.setStyle("visibility", "visible");
+	},
+
+	hideMessage: function() {
+		this.disableInput(false);
+		this._messagepane.setStyle("visibility", "hidden");
+	},
+
 	// return index of file indentified by 'id' or return -1
 	_getFileIndex: function(id) {
 		var i, len, files = this.get("files");
@@ -561,7 +602,7 @@ Y.extend(Uploader, Y.Widget, {
 		
 		if (mimeTypes.length > 0) { dirArgs.mimetypes = this.get("mimeTypes"); }
 
-		BrowserPlus.Directory.recursiveList(dirArgs, function(res) {
+		YAHOO.bp.Directory.recursiveList(dirArgs, function(res) {
 			var i, file, files, maxFileSize;
 
 			if (!res.success) { return; }
@@ -592,7 +633,7 @@ Y.extend(Uploader, Y.Widget, {
 
 	
 	/** Display just added file in UI */
-	_fileAddedEvent: function(e) {
+	_fileAddedListener: function(e) {
 		// remember file
 		this.get("files").push(e.file);
 
@@ -615,7 +656,7 @@ Y.extend(Uploader, Y.Widget, {
 		}
 	},
 
-	_fileRemovedEvent: function(e) {
+	_fileRemovedListener: function(e) {
 		var index = this._getFileIndex(e.file.id);
 		if (index !== -1) {
 			this.get("files").splice(index, 1); // changes array in place
@@ -623,7 +664,7 @@ Y.extend(Uploader, Y.Widget, {
 		}
 	},
 
-	_filesChangedEvent: function() {
+	_filesChangedListener: function() {
 		// disable upload button when there are no files
 		var i, size=0, files = this.get("files"), numfiles = files.length;
 
@@ -640,7 +681,32 @@ Y.extend(Uploader, Y.Widget, {
 		this._foot.one("." + Uploader.FOOTER_CSS.ft_size_label).setContent(this.sizeInBytes(size));
 	},
 
-	/** User clicked Add Files... BrowserPlus.OpenBrowseDialog classed */
+
+	_uploadStartListener: function(e) {
+		this._progresstext.setContent("0%");
+		this._progressbar.setStyle("width", "0%");
+		this._progressclose.setStyle("visibility", "hidden");
+		this._progresspane.setStyle("visibility", "visible");
+	},
+
+	/**
+	 * Displays percentage complete for following: resizeProgress, archiveProgress, uploadProgress
+	 */
+	_progressListener: function(e) {
+		var p = e.progress.totalPercent, t = this._progressStrings[e.type];
+		this._progresstext.setContent(t + ": " + p + "%");
+		this._progressbar.setStyle("width", p + "%");
+	},
+
+	_uploadCompleteListener: function(e) {
+		// when upload is complete, show user "Upload Complete" message and
+		// show "Close" button.  User presses "Close" and _hideProgress shows.
+		this._progresstext.setContent(this.get("strings.upload_complete"));
+		this._progressclose.setStyle("visibility", "visible");
+	},
+
+
+	/** User clicked Add Files... YAHOO.bp.OpenBrowseDialog classed */
 	_openFileDialog: function(e) {
 		if (this.get("disabledInput")) {return;}
 		var that = this;
@@ -683,7 +749,7 @@ Y.extend(Uploader, Y.Widget, {
 			maxWidth = this.get("maxWidth"),
 			maxHeight = this.get("maxHeight");
 
-		BrowserPlus.ImageAlter.transform({
+		YAHOO.bp.ImageAlter.transform({
 				file : file,
 				quality : quality,
 				actions : [{ scale : { maxwidth: maxWidth, maxheight: maxHeight } }]
@@ -698,13 +764,9 @@ Y.extend(Uploader, Y.Widget, {
 	 * Step 1:  User clicks on Upload button.
 	 */
 	_uploadButtonClicked: function(e) {
-		Y.log("STEP 1: uploadButtonClicked");
-		
-		// disallow user input while uploading
-		this.set("disabledInput", true);
-		this.enableAddButton(false);
-		this.enableUploadButton(false);
-
+		//Y.log("STEP 1: uploadButtonClicked");
+		this.disableInput(true);
+		this.fire(UPLOAD_START);
 		this.fire(INT_CLICKED, {files: this.get("files") });
 	},
 	
@@ -723,7 +785,7 @@ Y.extend(Uploader, Y.Widget, {
 			numImagesResized = 0,
 			resizeStartEventSent = false;
 
-		Y.log("STEP 2: uploadResizeImages");
+		//Y.log("STEP 2: uploadResizeImages");
 
 		// returns true if file is image and should be resized
 		resizeValidator = function(file) {
@@ -770,7 +832,7 @@ Y.extend(Uploader, Y.Widget, {
 					file: files[i], 
 					progress: {
 						filePercent:  0, 
-						totalPercent: Math.round(numImagesResized / numImagesToResize * 100)
+						totalPercent: Math.floor(numImagesResized / numImagesToResize * 100)
 					}
 				});
 
@@ -787,20 +849,17 @@ Y.extend(Uploader, Y.Widget, {
 	_uploadArchiveFiles: function(e) {
 		var that = this, files = e.files, archiveFormat = this.get("archiveFormat");
 
-		Y.log("STEP 3: uploadArchiveFiles");
+		//Y.log("STEP 3: uploadArchiveFiles");
 
 		if (archiveFormat) {
 			this.fire(ARCHIVE_START);
-			BrowserPlus.Archiver.archive(
+			YAHOO.bp.Archiver.archive(
 				{
 					files:	files,
 					format: archiveFormat,
 					progressCallback: function(v) {	
 						that.fire(ARCHIVE_PROGRESS, { 
-							progress: {
-								filePercent: v.percent, 
-								totalPercent: v.percent
-							}
+							progress: {filePercent: v.percent, totalPercent: v.percent }
 						});
 					}
 				},
@@ -833,8 +892,7 @@ Y.extend(Uploader, Y.Widget, {
 			vars = this.get("vars"),
 			progressCallback;
 			
-		Y.log("STEP 4: uploadStart");
-		this.fire(UPLOAD_START);
+		//Y.log("STEP 4: uploadStart");
 
 		// calculate number of bytes to upload and create object to keep track of
 		// number of bytes uploaded for each file
@@ -842,8 +900,6 @@ Y.extend(Uploader, Y.Widget, {
 			totalBytesToUpload += files[i].size;
 			byteCounter["id"+files[i].BrowserPlusHandleID] = 0;
 		}
-
-		Y.log("totalBytes: " + totalBytesToUpload);
 
 		// Sending 1 file at a time to get simulateneous uploads, so all "total" vals should be ignored
 		// v is {file, filePercent, fileSent, fileSize, totalPercent, totalSent, totalSize}
@@ -859,7 +915,6 @@ Y.extend(Uploader, Y.Widget, {
 					if (byteCounter.hasOwnProperty(id)) { bytesSent += byteCounter[id]; }
 				}
 
-				Y.log("b: " + bytesSent + ", t: " +  totalBytesToUpload);
 				that.fire(UPLOAD_PROGRESS, {
 					file: file,
 					progress: {
@@ -888,7 +943,7 @@ Y.extend(Uploader, Y.Widget, {
 			if (vars)   { params.postvars = vars; }
 			if (cookie) { params.cookies = cookie; }
 
-			BrowserPlus.Uploader.upload(params, function(r) {
+			YAHOO.bp.Uploader.upload(params, function(r) {
 				var data;
 
 				if (r.success) {
@@ -909,30 +964,15 @@ Y.extend(Uploader, Y.Widget, {
 
 				if (++filesUploaded == numfiles) {
 					that.fire(UPLOAD_COMPLETE);
-					that.fire(INT_UPLOADED);
 				}
 			}); 
 		};
 
 		for (i = 0; i < numfiles; i++) {
-			Y.log("Upload File: " + files[i].name);
 			uploadFunc(files[i]);
 		}
 	},
 	
-	/**
-	 * Step 5: Upload complete.
-	 */
-	_uploadComplete: function(e) {
-		Y.log("STEP 5: uploadComplete");
-
-		this.set("disabledInput", false);
-		this.enableAddButton(true);
-		this.enableUploadButton(false);
-		this.clearFileList();
-	},
-
-
 	
 	// return the nearest ancestor (including the given node) with the specified className
 	_getNodeOrAncestorWithClass: function(node, cn) {
@@ -997,15 +1037,28 @@ Y.extend(Uploader, Y.Widget, {
 		var id = Y.guid(),
 			css = Y.merge(Uploader.BODY_CSS, { 
 				filelist_id	   : id ,
-				str_drop_files : this.get('strings.drop_files')
+				str_drop_files : this.get('strings.drop_files'),
+				str_close      : this.get("strings.close")
 			});
 
 		this._body = Y.Node.create(Y.substitute(Uploader.BODY_TEMPLATE, css));
-
-		this._filelist	= this._body.one("." + css.filelist_class);
-		this._hoverpane = this._body.one("." + css.hover_class);
-
 		this._contentBox.appendChild(this._body);
+
+		this._filelist      = this._body.one("." + css.filelist_class);
+		this._hoverpane     = this._body.one("." + css.hover_class);
+		this._messagepane   = this._body.one("." + css.message_class);
+		this._messagetext   = this._body.one("." + css.message_text);
+		this._messageclose  = this._body.one("." + css.message_close);
+		this._progresspane  = this._body.one("." + css.progress_class);
+		this._progressbar   = this._body.one("." + css.progress_fg);
+		this._progresstext  = this._body.one("." + css.progress_text);
+		this._progressclose = this._body.one("." + css.progress_close);
+
+		this._progressStrings = {
+			"uploader:resizeProgress":  this.get("strings.resize_progress"),
+			"uploader:archiveProgress": this.get("strings.archive_progress"),
+			"uploader:uploadProgress":  this.get("strings.upload_progress")
+		};
 	},
 
 	/**
@@ -1024,6 +1077,9 @@ Y.extend(Uploader, Y.Widget, {
 
 		this._foot = Y.Node.create(Y.substitute(Uploader.FOOTER_TEMPLATE, css));
 		this._contentBox.appendChild(this._foot);
+
+		this._addbutton    = this._foot.one("." + css.add_button);
+		this._uploadbutton = this._foot.one("." + css.upload_button);
 	},
 
 	initializer: function(){
@@ -1068,50 +1124,65 @@ Y.extend(Uploader, Y.Widget, {
 		var hover = this._hoverpane, id = this._filelist.get("id"), that = this;
 
 		// User clicks on "Add Files" or "Upload" button
-		this._contentBox.query('#add_button').on("click", this._openFileDialog, this);
-		this._contentBox.query('#upload_button').on("click", this._uploadButtonClicked, this);
+
+		this._addbutton.on("click", this._openFileDialog, this);
+		this._uploadbutton.on("click", this._uploadButtonClicked, this);
+		this._messageclose.on("click", this.hideMessage, this);
+		this._progressclose.on("click", function(e) {
+			this.clearFileList();
+			this._progresspane.setStyle("visibility", "hidden");		
+			this._progressclose.setStyle("visibility", "hidden");
+			this.disableInput(false);
+		}, this);
 
 		// Use clicks in filelist are (click on trashcan icon to remove file)
 		this._filelist.on("click", this._fileClickEvent, this);
 
+		//---------------------
 		// Custom Events
-		this.after(FILE_ADDED, this._fileAddedEvent, this);
-		this.after(FILE_REMOVED, this._fileRemovedEvent, this);
-		this.after(FILES_CHANGED, this._filesChangedEvent, this);
+
+		// Triggered from OpenBrowseDialog and DragAndDrop, modifies UI to show files
+		this.after(FILE_ADDED,    this._fileAddedListener, this);
+		this.after(FILE_REMOVED,  this._fileRemovedListener, this);
+		this.after(FILES_CHANGED, this._filesChangedListener, this);
+
+		// Shows progress while uploading
+		this.after(UPLOAD_START,     this._uploadStartListener, this);
+		this.after(RESIZE_PROGRESS,  this._progressListener, this);
+		this.after(ARCHIVE_PROGRESS, this._progressListener, this);
+		this.after(UPLOAD_PROGRESS,  this._progressListener, this);
+		this.after(UPLOAD_COMPLETE,  this._uploadCompleteListener, this);
+
+		//
+		//---------------------
 
 		// Private Custom Events (not published)
 		this.on(INT_CLICKED,  this._uploadResizeImages, this);
 		this.on(INT_RESIZED,  this._uploadArchiveFiles, this);
 		this.on(INT_ARCHIVED, this._uploadStart,        this);
-		this.on(INT_UPLOADED, this._uploadComplete,     this);
 
-		this.enableAddButton(true);
-		this.set("disabledInput", false);
+		this.disableInput(false);
 
+		YAHOO.bp.DragAndDrop.AddDropTarget({ id: id}, function (r) {
+			if (!r.success) { return; }
+			YAHOO.bp.DragAndDrop.AttachCallbacks({id: id, 
+				hover: function(hovering) {
+					if (that.get("disabledInput")) {return;}
 
-
-
-		BrowserPlus.DragAndDrop.AddDropTarget({ id: id}, function (r) {
-			if (r.success) {
-				BrowserPlus.DragAndDrop.AttachCallbacks({id: id, 
-					hover: function(hovering) {
-						if (that.get("disabledInput")) {return;}
-
-						var visible = hover.getStyle("visibility");
-						// only set property once
-						if (hovering && visible != "visible") {
-							hover.setStyle("visibility", "visible");
-						} else if (!hovering && visible == "visible") {
-							hover.setStyle("visibility", "hidden");
-						}
-					}, 
-					drop: function(files) {
-						if (that.get("disabledInput")) {return;}
+					var visible = hover.getStyle("visibility");
+					// only set property once
+					if (hovering && visible != "visible") {
+						hover.setStyle("visibility", "visible");
+					} else if (!hovering && visible == "visible") {
 						hover.setStyle("visibility", "hidden");
-						that._addFilesToList(files);
 					}
-				},	function() {});
-			}
+				}, 
+				drop: function(files) {
+					if (that.get("disabledInput")) {return;}
+					hover.setStyle("visibility", "hidden");
+					that._addFilesToList(files);
+				}
+			},	function() {});
 		});
 	},
 
