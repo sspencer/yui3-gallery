@@ -25,7 +25,7 @@
     </div>
 </body>
 <script src="http://bp.yahooapis.com/2.6.0/browserplus-min.js"></script>
-<script src="http://yui.yahooapis.com/combo?3.0.0/build/yui/yui.js"></script>
+<script src="http://yui.yahooapis.com/combo?3.0.0/build/yui/yui-min.js"></script>
 <script src="../build_tmp/gallery-uploader-debug.js"></script>
 <script>
 YUI().use('gallery-uploader', function(Y) {
@@ -34,7 +34,7 @@ YUI().use('gallery-uploader', function(Y) {
 		width: "400px", 
 		height: "200px", 
 		uploadUrl: "http://browserplus.org/misc/upload.php",
-		archiveFormat: 'tar-bzip2',
+//		archiveFormat: 'tar-bzip2',
 		resizeWidth:400}).render();
 
 	Y.on("click", function(){
@@ -58,31 +58,27 @@ YUI().use('gallery-uploader', function(Y) {
 	}, "#hide_message");
 
 	var events = [
-		// "fileAdded",
+		 "fileAdded",
 		// "fileRemoved",
 		// "fileChanged",
-		 "resizeStart",
-		// "resizeProgress",
+		//"resizeStart",
+		"resizeProgress",
 		// "resizeComplete",
-		 "archiveStart",
-		// "archiveProgress",
+		//"archiveStart",
+		"archiveProgress",
 		// "archiveComplete",
-		 "uploadStart",
-		//"uploadProgress",
-		// "uploadResponse",
+		//"uploadStart",
+		"uploadProgress",
+		//"uploadResponse",
 		// "uploadComplete"
 	];
 	
 	Y.Array.each(events, function(v){
 		up.on(v, function(e) {
 			Y.log("Event: " + e.type);
-			if (e.file) {
-				Y.log("  name: " + e.file.name + ", size: " + e.file.size);
-			}
-			if (e.progress) {
-				if (e.progress.filePercent)  {Y.log("  filePercent:  " + e.progress.filePercent);	}
-				if (e.progress.totalPercent) {Y.log("  totalPercent: " + e.progress.totalPercent);	}
-			}
+			if (e.file) { Y.log("    file: " + e.file.name); }
+			if (e.progress) { Y.log("    filePercent: " + e.progress.filePercent + ", totalPercent: " + e.progress.totalPercent); }
+			if (e.response) { Y.log(e.response); }
 		});
 	});
 

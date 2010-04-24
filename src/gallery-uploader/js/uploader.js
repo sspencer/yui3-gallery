@@ -127,6 +127,8 @@ Uploader.ATTRS = {
 		validator: Y.Lang.isNumber
 	},
 	
+	// TODO - maxTotalSize instead??
+	
 	/**
 	 * Maximum width of an uploaded image.	By default, uploaded images are not resized.  Set this
 	 * value to non-zero to restrict the size of an image.
@@ -233,7 +235,7 @@ Uploader.ATTRS = {
 	
 	/**
 	 * The URL of the upload script on the server.	If this value is not set, 
-	 * not files will be uploaded.
+	 * files will not be uploaded.
 	 * 
 	 * @attribute uploadUrl
 	 * @default null
@@ -300,7 +302,7 @@ Uploader.ATTRS = {
 			resize_progress:  "Resizing Images",
 			archive_progress: "Compressing Files",
 			upload_progress:  "Uploading Files",
-			upload_complete:   "Upload Complete!"
+			upload_complete:  "Upload Complete!"
 		}
 	}
 };
@@ -506,7 +508,7 @@ Y.extend(Uploader, Y.Widget, {
 	/**
 	 * Clears the list of files queued for upload.
 	 */
-	clearFileList: function() {
+	removeAllFiles: function() {
 		var len = this.get("files").length;
 
 		// remove file entries from ui
@@ -740,27 +742,6 @@ Y.extend(Uploader, Y.Widget, {
 	},
 	
 	/**
-	 * Resize single file if it is an image.  To resize an image, the mimeType must be one of
-	 * ("image/gif", "image/jpeg", "image/pjpeg", "image/png") and resizeWidth or resizeHeight must
-	 * be more than 0.
-	*/
-	_resizeImage: function(file, cb) {
-		var quality = this.get("resizeQuality"), 
-			maxWidth = this.get("maxWidth"),
-			maxHeight = this.get("maxHeight");
-
-		YAHOO.bp.ImageAlter.transform({
-				file : file,
-				quality : quality,
-				actions : [{ scale : { maxwidth: maxWidth, maxheight: maxHeight } }]
-			}, function(res) { 
-				cb((res.success ? res.value.file : file), true); // true - file is "image"
-			}
-		);
-	},
-
-
-	/**
 	 * Step 1:  User clicks on Upload button.
 	 */
 	_uploadButtonClicked: function(e) {
@@ -770,46 +751,39 @@ Y.extend(Uploader, Y.Widget, {
 		this.fire(INT_CLICKED, {files: this.get("files") });
 	},
 	
-	
 	/**
 	 * Step 2: Resize Images, if needed.
 	 */
 	_uploadResizeImages: function(e) {
 		var i, files = e.files, numfiles = files.length, filesToUpload = [], 
 			that = this,
-			resizeCB,
-			resizeValidator,
-			maxWidth = this.get("resizeWidth"),
-			maxHeight = this.get("resizeHeight"),
+			resizeDone,			// inner func
+			resizeValidator,	// inner func
+			resizeImage,		// inner func
+			resizeProgress,		// inner func
+			resizeQuality = this.get("resizeQuality"),
+			resizeWidth = this.get("resizeWidth"),
+			resizeHeight = this.get("resizeHeight"),
 			numImagesToResize = 0,
-			numImagesResized = 0,
-			resizeStartEventSent = false;
+			numImagesResized = 0;
+
 
 		//Y.log("STEP 2: uploadResizeImages");
 
 		// returns true if file is image and should be resized
 		resizeValidator = function(file) {
-			return ((maxWidth > 0 || maxHeight > 0) && that._isImage(file));
+			return ((resizeWidth > 0 || resizeHeight > 0) && that._isImage(file));
 		};
 
-		for (i = 0; i < numfiles; i++) {
-			if (resizeValidator(files[i])) { numImagesToResize++; }
-		}
-
-		// _resizeImage callback
-		resizeCB = function(f, isImage) {
+		// called for each file, image or not
+		resizeDone = function(f, isImage) {
 			filesToUpload.push(f);
 
-			// send progress events if we've actually resized an image
+			// send RESIZE events if we've actually resized an image
 			if (isImage) {
+				// for all images, send PROGRESS
 				numImagesResized++;
-				that.fire(RESIZE_PROGRESS, {
-					file: f, 
-					progress: {
-						filePercent:  100, 
-						totalPercent: Math.floor(numImagesResized / numImagesToResize * 100)
-					}
-				});
+				resizeProgress(f, 100);
 			}
 
 			if (filesToUpload.length === numfiles) {
@@ -821,27 +795,51 @@ Y.extend(Uploader, Y.Widget, {
 			}
 		};
 
+		// call BrowserPlus to actually resize image
+		resizeImage = function(file, cb) {
+			YAHOO.bp.ImageAlter.transform({
+					file : file,
+					quality : resizeQuality,
+					actions : [{ scale : { maxwidth: resizeWidth, maxheight: resizeHeight } }]
+				}, function(res) { 
+					cb((res.success ? res.value.file : file), true); // true - file is "image"
+				}
+			);
+		};
+
+		// fire a progress event - percent is either "0" or "100" since ImageAlter
+		// doesn't have actually progress
+		resizeProgress = function(file, percent) {
+			that.fire(RESIZE_PROGRESS, {
+				file: file, 
+				progress: {
+					filePercent:  percent, 
+					totalPercent: Math.floor(numImagesResized / numImagesToResize * 100)
+				}
+			});
+		};
+		
+
+		// count the number of images to be resized, so we can show progress
+		// based on the number of images processed
+		for (i = 0; i < numfiles; i++) {
+			if (resizeValidator(files[i])) { numImagesToResize++; }
+		}
+
+		// if there's at least 1 image to process, fire START event
+		if (numImagesToResize > 0) { this.fire(RESIZE_START); }
+
+		// for each file, either resize it or we're done with it
 		for (i = 0; i < numfiles; i++) {
 			if (resizeValidator(files[i])) {
-				if (!resizeStartEventSent) {
-					resizeStartEventSent = true;
-					this.fire(RESIZE_START);
-				}
-
-				this.fire(RESIZE_PROGRESS, {
-					file: files[i], 
-					progress: {
-						filePercent:  0, 
-						totalPercent: Math.floor(numImagesResized / numImagesToResize * 100)
-					}
-				});
-
-				this._resizeImage(files[i], resizeCB);
+				resizeProgress(files[i], 0);
+				resizeImage(files[i], resizeDone);
 			} else {
-				resizeCB(files[i], false);
+				resizeDone(files[i], false);
 			}
 		}
 	},
+
 
 	/**
 	 * Step 3: Archive (and compress) files, if needed.
@@ -1129,7 +1127,7 @@ Y.extend(Uploader, Y.Widget, {
 		this._uploadbutton.on("click", this._uploadButtonClicked, this);
 		this._messageclose.on("click", this.hideMessage, this);
 		this._progressclose.on("click", function(e) {
-			this.clearFileList();
+			this.removeAllFiles();
 			this._progresspane.setStyle("visibility", "hidden");		
 			this._progressclose.setStyle("visibility", "hidden");
 			this.disableInput(false);
