@@ -34,11 +34,11 @@ YUI().use('gallery-uploader', function(Y) {
 		width: "400px", 
 		height: "200px", 
 		uploadUrl: "http://browserplus.org/misc/upload.php",
-//		archiveFormat: 'tar-bzip2',
+		archiveFormat: 'tar-bzip2',
 		resizeWidth:400}).render();
 
 	Y.on("click", function(){
-		up.clearFileList();
+		up.clearFilelist();
 	}, "#clear_files");
 
 	Y.on("click", function(){
@@ -58,17 +58,17 @@ YUI().use('gallery-uploader', function(Y) {
 	}, "#hide_message");
 
 	var events = [
-		 "fileAdded",
+		// "fileAdded",
 		// "fileRemoved",
 		// "fileChanged",
-		//"resizeStart",
-		"resizeProgress",
+		"resizeStart",
+		//"resizeProgress",
 		// "resizeComplete",
-		//"archiveStart",
-		"archiveProgress",
+		"archiveStart",
+		//"archiveProgress",
 		// "archiveComplete",
-		//"uploadStart",
-		"uploadProgress",
+		"uploadStart",
+		//"uploadProgress",
 		//"uploadResponse",
 		// "uploadComplete"
 	];
@@ -76,6 +76,9 @@ YUI().use('gallery-uploader', function(Y) {
 	Y.Array.each(events, function(v){
 		up.on(v, function(e) {
 			Y.log("Event: " + e.type);
+			if (e.files) {
+				Y.log("Files Size: " + up.getTotalSize(e.files));
+			}
 			if (e.file) { Y.log("    file: " + e.file.name); }
 			if (e.progress) { Y.log("    filePercent: " + e.progress.filePercent + ", totalPercent: " + e.progress.totalPercent); }
 			if (e.response) { Y.log(e.response); }
