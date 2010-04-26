@@ -93,7 +93,6 @@
 .yui-uploader-disabled .yui-uploader-filelist {
     background:#eee;
     color:#ccc;
-    font-style:italic;
 }
 
 .yui-uploader-filelist {
@@ -133,16 +132,18 @@
     color:#000;
 }
 
+.yui-uploader-message-close a {
+    color:#000;
+    font-weight:bold;
+    font-size:10pt;
+}
+
 .yui-uploader-message-close {
     position:absolute;
     bottom:5px;
     right:20px;
 }
 
-.yui-uploader-message-button a{
-    color:#000;
-    font-size:9pt;
-}
 
 .yui-uploader-progress {
     background:#def;
@@ -155,6 +156,12 @@
     position:absolute;
     bottom:5px;
     right:20px;
+}
+
+.yui-uploader-progress-close a {
+    color:#000;
+    font-weight:bold;
+    font-size:10pt;
 }
 
 .yui-uploader-progress-bar {
