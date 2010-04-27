@@ -286,7 +286,18 @@ Uploader.ATTRS = {
 			resize_progress:  "Resizing Images",
 			archive_progress: "Compressing Files",
 			upload_progress:  "Uploading Files",
-			upload_complete:  "Upload Complete!"
+			upload_complete:  "Upload Complete!",
+			first_text:       "Press Add Files... or Drag and Drop files from your computer to start.",
+			bp_download: 
+				"Please install <a target=\"blank\" href=\"http://browserplus.yahoo.com/install/\">BrowserPlus</a> to continue.",
+			bp_installed:
+				"Downloading services...  This happens just once.",
+			bp_initfail:
+				"Error - Could not start or install BrowserPlus.",
+			bp_incompatible:
+				"Error - Uploader is not compatible with this operating system or internet browser.",
+			bp_requirefail:
+				"Error - Could not fetch required services."
 		}
 	}
 };
@@ -362,7 +373,13 @@ Uploader.HEADER_CSS = {
  */
 Uploader.BODY_TEMPLATE = 
 	'<div>' +
+		'<div style="visibility:hidden" class="{bd_class} {hover_class}">' + 
+			'<div class="{hover_text}">{str_drop_files}</div>' + 
+		'</div>' +
 		'<div id="{filelist_id}" class="{bd_class} {filelist_class}"></div>'+ 
+		'<div style="visibility:hidden" class="{bd_class} {first_class}">' +
+			'<div class="{first_text}">{str_first_text}</div>' + 
+		'</div>' +
 		'<div style="visibility:hidden" class="{bd_class} {message_class}">' +
 			'<div class="{message_text}"></div>'  +
 			'<div class="{message_close}"><a href="#">{str_close}</a></div>'  +
@@ -372,9 +389,6 @@ Uploader.BODY_TEMPLATE =
 			'<div class="{progress_bar} {progress_fg}"></div>' +
 			'<div class="{progress_text}">0%</div>' +
 			'<div class="{progress_close}"><a href="#">{str_close}</a></div>'  +
-		'</div>' +
-		'<div style="visibility:hidden" class="{bd_class} {hover_class}">' + 
-			'<div class="{hover_text}">{str_drop_files}</div>' + 
 		'</div>' +
 	'</div>';
 
@@ -391,6 +405,8 @@ Uploader.BODY_CSS = {
 	hover_class	   : getCN(UPLOADER, "hover"),
 	hover_text	   : getCN(UPLOADER, "hover", "text"),
 	filelist_class : getCN(UPLOADER, "filelist"),
+	first_class    : getCN(UPLOADER, "first"),
+	first_text     : getCN(UPLOADER, "first", "text"),
 	message_class  : getCN(UPLOADER, "message"),
 	message_text   : getCN(UPLOADER, "message", "text"),
 	message_close  : getCN(UPLOADER, "message", "close"),
@@ -448,8 +464,11 @@ Y.extend(Uploader, Y.Widget, {
 	_body: null,
 	_foot: null,
 	_filelist: null,
+	_firstpane: null,
 	_hoverpane: null,
-
+	_showingHover: false,
+	_showingFirst: false,
+	
 	_messagepane: null,   // Message Pane
 	_messagetext: null,   // Message displayed to user
 	_messageclose: null,  // Close Button
@@ -462,6 +481,7 @@ Y.extend(Uploader, Y.Widget, {
 	_uploadbutton: null,
 	
 	_progressStrings: null, // map event names to user strings
+	
 	
 	/** 
 	 * Convert number of bytes into human readable string (ala "2 MB") 
@@ -561,8 +581,27 @@ Y.extend(Uploader, Y.Widget, {
 		// hide progress just in case
 		this._progressclose.setStyle("visibility", "hidden");
 		this._progresspane.setStyle("visibility", "hidden");
-
 		this._messagepane.setStyle("visibility", "visible");
+	},
+
+	showFirst: function() {
+		this._showingFirst = true;
+		this._firstpane.setStyle("visibility", "visible");
+	},
+
+	hideFirst: function() {
+		this._showingFirst = false;
+		this._firstpane.setStyle("visibility", "hidden");
+	},
+
+	showHover: function() {
+		this._showingHover = true;
+		this._hoverpane.setStyle("visibility", "visible");
+	},
+	
+	hideHover: function() {
+		this._showingHover = false;
+		this._hoverpane.setStyle("visibility", "hidden");
 	},
 
 	/**
@@ -745,6 +784,10 @@ Y.extend(Uploader, Y.Widget, {
 	_openFileDialog: function(e) {
 		if (this.get("disabledInput")) {return;}
 		var that = this;
+
+		if (this._showingFirst) {
+			this.hideFirst();
+		}
 
 		YAHOO.bp.FileBrowse.OpenBrowseDialog({}, function(r) {
 			if (r.success) {
@@ -1082,6 +1125,7 @@ Y.extend(Uploader, Y.Widget, {
 		this._contentBox = null;
 		this._body = null;
 		this._foot = null;
+		this._firstpane = null;
 		this._filelist = null;
 		this._hoverpane = null;
 		this._messagepane = null;
@@ -1139,7 +1183,8 @@ Y.extend(Uploader, Y.Widget, {
 			css = Y.merge(Uploader.BODY_CSS, { 
 				filelist_id	   : id ,
 				str_drop_files : this.get('strings.drop_files'),
-				str_close      : this.get("strings.close")
+				str_close      : this.get("strings.close"),
+				str_first_text : this.get("strings.first_text")
 			});
 
 		this._body = Y.Node.create(Y.substitute(Uploader.BODY_TEMPLATE, css));
@@ -1147,6 +1192,7 @@ Y.extend(Uploader, Y.Widget, {
 
 		this._filelist      = this._body.one("." + css.filelist_class);
 		this._hoverpane     = this._body.one("." + css.hover_class);
+		this._firstpane     = this._body.one("." + css.first_class);
 		this._messagepane   = this._body.one("." + css.message_class);
 		this._messagetext   = this._body.one("." + css.message_text);
 		this._messageclose  = this._body.one("." + css.message_close);
@@ -1174,7 +1220,7 @@ Y.extend(Uploader, Y.Widget, {
 			str_add_files : this.get('strings.add_files'),
 			str_upload	  : this.get('strings.upload'),
 			str_total	  : this.get('strings.total'),
-			str_size	  : '0' + this.get('strings.size_kb')
+			str_size	  : '0' + this.get('strings.size_b')
 		});
 
 		this._foot = Y.Node.create(Y.substitute(Uploader.FOOTER_TEMPLATE, css));
@@ -1194,7 +1240,6 @@ Y.extend(Uploader, Y.Widget, {
 		var hover = this._hoverpane, id = this._filelist.get("id"), that = this;
 
 		// User clicks on "Add Files" or "Upload" button
-
 		this._addbutton.on("click", this._openFileDialog, this);
 		this._uploadbutton.on("click", this._uploadButtonClicked, this);
 		this._messageclose.on("click", this.hideMessage, this);
@@ -1203,28 +1248,49 @@ Y.extend(Uploader, Y.Widget, {
 		// Use clicks in filelist are (click on trashcan icon to remove file)
 		this._filelist.on("click", this._fileClickEvent, this);
 
+		// show the initial message ("Press Add Files or Drag and Drop")
+		this.showFirst();
+
 		YAHOO.bp.DragAndDrop.AddDropTarget({ id: id}, function (r) {
+
 			if (!r.success) { return; }
 			YAHOO.bp.DragAndDrop.AttachCallbacks({id: id, 
 				hover: function(hovering) {
 					if (that.get("disabledInput")) {return;}
 
-					var visible = hover.getStyle("visibility");
-					// only set property once
-					if (hovering && visible != "visible") {
-						hover.setStyle("visibility", "visible");
-					} else if (!hovering && visible == "visible") {
-						hover.setStyle("visibility", "hidden");
+					// hide the "first" message
+					if (that._showingFirst) { that.hideFirst();}
+
+					// some logic so visibility property doesn't get set more than once
+					if (hovering && !that._showingHover) {
+						that.showHover();
+					} else if (!hovering && that._showingHover) {
+						that.hideHover();
 					}
+
 				}, 
 				drop: function(files) {
 					if (that.get("disabledInput")) {return;}
-					hover.setStyle("visibility", "hidden");
+					that.hideHover();
 					that._addFilesToList(files);
 				}
 			},	function() {});
 		});
 	},
+
+	_requireServices: function() {
+		var that = this;
+		YAHOO.bp.require({services: SERVICES}, function(require) {
+			if (require.success) {
+				that.hideMessage();
+				that._binder();
+			} else {
+				that._messageclose.setStyle("visibility", "hidden");
+				that.showMessage(that.get("strings.bp_requirefail"));
+			}
+		});
+	},
+	
 
 	/**
 	 * Initialize BrowserPlus.  Once BrowserPlus is ready, _binder takes care of the rest.
@@ -1235,23 +1301,38 @@ Y.extend(Uploader, Y.Widget, {
 		var that = this;
 
 		YAHOO.bp.init({},function(init) {
+			var sys = YAHOO.bp.clientSystemInfo();
+
 			if (init.success) {
-				YAHOO.bp.require({services: SERVICES}, function(require) {
-					if (require.success) {
-						that._binder();
-					}
-				});
+				that._requireServices();
+			} else {
+				that._messageclose.setStyle("visibility", "hidden");
+
+				if (sys.supportLevel === "supported" && 
+					(init.error === "bp.notInstalled" || init.error === "bpPlugin.platformBlacklisted")) 
+				{
+					that.showMessage(that.get("strings.bp_download"));
+					YAHOO.bp.initWhenAvailable({}, function(res) {
+						if (res.success) {
+							that.showMessage(that.get("strings.bp_installed"));
+							that._requireServices();
+						} else {
+							that.showMessage(that.get("strings.bp_initfail"));						
+						}
+					});
+				} else {
+					that.showMessage(that.get("strings.bp_incompatible"));
+				}
 			}
 		});
-		
 	},
+
 	
 	/**
 	 * Uploader is ready for input.
 	 * @protected
 	 */
 	syncUI: function() {
-		this.disableInput(false);
 	}
 
 });

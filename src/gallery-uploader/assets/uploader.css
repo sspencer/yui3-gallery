@@ -26,7 +26,7 @@
 
 .yui3-uploader-hd {
     height:16px;
-    border-bottom:1px solid #aaa;
+    border-bottom:1px solid #999;
 }
 
 .yui3-uploader-hd-file-label {
@@ -84,10 +84,10 @@
 
 .yui3-uploader-bd {
     position: absolute;
-    top: 16px;
+    top: 17px;
     left: 0px;
     right:0px;
-    bottom:32px;
+    bottom:33px;
 }
 
 .yui3-uploader-disabled .yui3-uploader-filelist {
@@ -101,10 +101,9 @@
 }
 
 .yui3-uploader-hover {
-    background:#FFC;
-	filter:alpha(opacity=50);
-	opacity: 0.5;
-/*    visibility:hidden;*/
+    background:#ce9;
+	filter:alpha(opacity=55);
+	opacity: 0.55;
 }
 
 .yui3-uploader-hover-text {
@@ -116,8 +115,20 @@
     font-size: 14pt;
 }
 
+.yui3-uploader-first {
+}
+
+.yui3-uploader-first-text {
+    position:relative;
+    padding:5px 12px;
+    top:30%;
+    text-align:left;
+    font-size: 12pt;
+    color:#666;
+}
+
 .yui3-uploader-message {
-    background:#69c;
+    background:#def;
 	filter:alpha(opacity=90);
 	opacity: 0.9;
     visibility:hidden;
@@ -127,7 +138,7 @@
     position:relative;
     padding:5px 10px;
     top:25%;
-    text-align:center;
+    text-align:left;
     font-size: 12pt;
     color:#000;
 }
@@ -143,7 +154,6 @@
     bottom:5px;
     right:20px;
 }
-
 
 .yui3-uploader-progress {
     background:#def;
@@ -196,7 +206,7 @@
 
 
 .yui3-uploader-ft {
-    border-top:1px solid #bbb;
+    border-top:1px solid #999;
     width:100%;
     position: absolute;
     bottom: 0px;
