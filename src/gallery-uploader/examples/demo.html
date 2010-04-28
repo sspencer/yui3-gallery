@@ -29,13 +29,13 @@
 <script src="../build_tmp/gallery-uploader-debug.js"></script>
 <script>
 YUI().use('gallery-uploader', function(Y) {
-	var up = new Y.BP.Uploader({
-		contentBox: 'div.foo', 
-		width: "400px", 
-		height: "200px", 
-		uploadUrl: "http://browserplus.org/misc/upload.php",
-		archiveFormat: 'tar-bzip2',
-		resizeWidth:400}).render();
+	var up = new Y.BP.Uploader({contentBox: 'div.foo'
+		, width: "400px"
+		, height: "200px"
+		, uploadUrl: "http://browserplus.org/misc/upload.php"
+		, archiveFormat: 'tar-bzip2'
+		, resizeWidth:400
+	}).render();
 
 	Y.on("click", function(){
 		up.clearFilelist();

@@ -377,8 +377,8 @@ Uploader.BODY_TEMPLATE =
 			'<div class="{hover_text}">{str_drop_files}</div>' + 
 		'</div>' +
 		'<div id="{filelist_id}" class="{bd_class} {filelist_class}"></div>'+ 
-		'<div style="visibility:hidden" class="{bd_class} {first_class}">' +
-			'<div class="{first_text}">{str_first_text}</div>' + 
+		'<div style="visibility:visible" class="{bd_class} {first_class}">' +
+			'<div class="{first_text}"></div>' + 
 		'</div>' +
 		'<div style="visibility:hidden" class="{bd_class} {message_class}">' +
 			'<div class="{message_text}"></div>'  +
@@ -464,10 +464,13 @@ Y.extend(Uploader, Y.Widget, {
 	_body: null,
 	_foot: null,
 	_filelist: null,
-	_firstpane: null,
+
 	_hoverpane: null,
 	_showingHover: false,
 	_showingFirst: false,
+	
+	_firstpane: null,
+	_firsttext: null,
 	
 	_messagepane: null,   // Message Pane
 	_messagetext: null,   // Message displayed to user
@@ -584,8 +587,9 @@ Y.extend(Uploader, Y.Widget, {
 		this._messagepane.setStyle("visibility", "visible");
 	},
 
-	showFirst: function() {
+	showFirstMessage: function(msg) {
 		this._showingFirst = true;
+		this._firsttext.setContent(msg);
 		this._firstpane.setStyle("visibility", "visible");
 	},
 
@@ -617,7 +621,7 @@ Y.extend(Uploader, Y.Widget, {
 	 */
 	showProgress: function() {
 		this.disableInput(true);
-		this._progresstext.setContent("0%");
+		this._progresstext.setContent("&nbsp;");
 		this._progressbar.setStyle("width", "0%");
 		this._progressclose.setStyle("visibility", "hidden");
 		this._progresspane.setStyle("visibility", "visible");
@@ -632,6 +636,13 @@ Y.extend(Uploader, Y.Widget, {
 		this._progresspane.setStyle("visibility", "hidden");
 	},
 
+	/**
+	 * Set file size in the UI.
+	 */
+	setFileSize: function(files) {
+		this._foot.one("." + Uploader.FOOTER_CSS.ft_size_label).setContent(this.getFriendlySize(this.getTotalSize(files)));
+	},
+	
 
 	/**
 	 * Return index of file indentified by 'id' or return -1.
@@ -737,6 +748,7 @@ Y.extend(Uploader, Y.Widget, {
 		}
 	},
 
+
 	/**
 	 * Update buttons enabled status and file size label after files are added/removed from UI.
 	 * @protected
@@ -747,8 +759,7 @@ Y.extend(Uploader, Y.Widget, {
 
 		// only set enabled button when there are files in list to upload
 		this.enableUploadButton(numfiles > 0);
-
-		this._foot.one("." + Uploader.FOOTER_CSS.ft_size_label).setContent(this.getFriendlySize(this.getTotalSize(files)));
+		this.setFileSize(files);
 	},
 
 	
@@ -757,8 +768,9 @@ Y.extend(Uploader, Y.Widget, {
 	 * @protected
 	 */
 	_progressListener: function(e) {
-		var p = e.progress.totalPercent, t = this._progressStrings[e.type];
-		this._progresstext.setContent(t + ": " + p + "%");
+		var p = e.progress.totalPercent, type = e.type, msg = this._progressStrings[type];
+
+		this._progresstext.setContent(msg + ": " + p + "%");
 		this._progressbar.setStyle("width", p + "%");
 	},
 
@@ -1098,7 +1110,7 @@ Y.extend(Uploader, Y.Widget, {
 		//    http://developer.yahoo.com/yui/3/api/EventTarget.html
 		this.publish(FILE_ADDED,       {defaultFn: this._fileAddedListener});     // file(s) added thru D+D or File Dialog
 		this.publish(FILE_REMOVED,     {defaultFn: this._fileRemovedListener});   // file removed
-		this.publish(FILES_CHANGED,    {defaultFn: this._filesChangedListener});  // file(s) added or removed
+		this.publish(FILES_CHANGED,    {preventable: false, defaultFn: this._filesChangedListener}); // file(s) added or removed
 
 		this.publish(RESIZE_START,     {defaultFn: this._uploadResizeImages}); 
 		this.publish(RESIZE_PROGRESS,  {preventable: false, defaultFn: this._progressListener}); 
@@ -1125,9 +1137,10 @@ Y.extend(Uploader, Y.Widget, {
 		this._contentBox = null;
 		this._body = null;
 		this._foot = null;
-		this._firstpane = null;
 		this._filelist = null;
 		this._hoverpane = null;
+		this._firstpane = null;
+		this._firsttext = null;
 		this._messagepane = null;
 		this._messagetext = null;
 		this._messageclose = null;
@@ -1183,8 +1196,7 @@ Y.extend(Uploader, Y.Widget, {
 			css = Y.merge(Uploader.BODY_CSS, { 
 				filelist_id	   : id ,
 				str_drop_files : this.get('strings.drop_files'),
-				str_close      : this.get("strings.close"),
-				str_first_text : this.get("strings.first_text")
+				str_close      : this.get("strings.close")
 			});
 
 		this._body = Y.Node.create(Y.substitute(Uploader.BODY_TEMPLATE, css));
@@ -1193,6 +1205,7 @@ Y.extend(Uploader, Y.Widget, {
 		this._filelist      = this._body.one("." + css.filelist_class);
 		this._hoverpane     = this._body.one("." + css.hover_class);
 		this._firstpane     = this._body.one("." + css.first_class);
+		this._firsttext     = this._body.one("." + css.first_text);
 		this._messagepane   = this._body.one("." + css.message_class);
 		this._messagetext   = this._body.one("." + css.message_text);
 		this._messageclose  = this._body.one("." + css.message_close);
@@ -1237,7 +1250,7 @@ Y.extend(Uploader, Y.Widget, {
 	 * @protected
 	 */
 	 _binder: function() {
-		var hover = this._hoverpane, id = this._filelist.get("id"), that = this;
+		var id = this._filelist.get("id"), that = this;
 
 		// User clicks on "Add Files" or "Upload" button
 		this._addbutton.on("click", this._openFileDialog, this);
@@ -1249,7 +1262,7 @@ Y.extend(Uploader, Y.Widget, {
 		this._filelist.on("click", this._fileClickEvent, this);
 
 		// show the initial message ("Press Add Files or Drag and Drop")
-		this.showFirst();
+		this.showFirstMessage(this.get("strings.first_text"));
 
 		YAHOO.bp.DragAndDrop.AddDropTarget({ id: id}, function (r) {
 
