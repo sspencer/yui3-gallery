@@ -26,7 +26,7 @@
 </body>
 <script src="http://bp.yahooapis.com/2.7.1/browserplus-min.js"></script>
 <script src="http://yui.yahooapis.com/combo?3.1.0/build/yui/yui-min.js"></script>
-<script src="../build_tmp/gallery-uploader-debug.js"></script>
+<script src="../build_tmp/gallery-uploader-min.js"></script>
 <script>
 YUI().use('gallery-uploader', function(Y) {
 	var up = new Y.BP.Uploader({contentBox: 'div.foo'
@@ -38,7 +38,7 @@ YUI().use('gallery-uploader', function(Y) {
 	}).render();
 
 	Y.on("click", function(){
-		up.clearFilelist();
+		up.clearFiles();
 	}, "#clear_files");
 
 	Y.on("click", function(){
@@ -77,11 +77,11 @@ YUI().use('gallery-uploader', function(Y) {
 		up.on(v, function(e) {
 			Y.log("Event: " + e.type);
 			if (e.files) {
-				Y.log("Files Size: " + up.getTotalSize(e.files));
+				Y.log("Files Size: " + up.getSize(e.files));
 			}
 			if (e.file) { Y.log("    file: " + e.file.name); }
 			if (e.progress) { Y.log("    filePercent: " + e.progress.filePercent + ", totalPercent: " + e.progress.totalPercent); }
-			if (e.response) { Y.log(e.response); }
+			if (e.response) { Y.log(e.response.data); }
 		});
 	});
 

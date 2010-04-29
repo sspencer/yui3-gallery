@@ -1,12 +1,16 @@
 /**
- * Provides a file uploader widget that uploads to a URL using POST. Cross domain 
- * uploads are allowed if the destination host has a master policy file which 
- * allows uploads from the source domain  (crossdomain.xml).
- *
- * Uploading to HTTPS is not supported at this time by the BrowserPlus Uploader service.
- * 
+ * Provides a file uploader widget allows a user to select multiple files or drag and drop
+ * files from the desktop into the widget.  Image files are optionally resized.  All files
+ * maybe are optionally archived (zip or tar) and compressed (bzip2, gzip, zip) to save
+ * bandwidth and speed uploads. Cross domain uploads are allowed if the destination 
+ * host has a master policy file which allows uploads from the source domain  (crossdomain.xml).
+ * Real upload progress is shown to the user.
+ * <p>
+ * Uploading to HTTPS is not supported at this time (BrowserPlus Uploader service currently
+ * lacks support for it).
  *
  * @module gallery-uploader
+ * @class Uploader
  */
 
 // local constants
@@ -23,37 +27,21 @@ FOOTER = "ft",
 ENTRY  = "entry",
 
 
-// EVENT NAMES
-
-// File List
-FILE_ADDED    = "fileAdded",	  
+// EVENT NAMES -- keep in sync with event documentation below
+FILE_ADDED	  = "fileAdded",	  
 FILE_REMOVED  = "fileRemoved",
 FILES_CHANGED = "filesChanged",
-
-// document events like this??  found in animation.js
-   //    /**
-   //    * @event tween
-   //    * @description fires every frame of the animation.
-   //    * @param {Event} ev The tween event.
-   //    * @type Event.Custom
-   //    */
-   //    TWEEN = 'tween',
-
-// Image Resize
-RESIZE_START     = "resizeStart",
-RESIZE_PROGRESS  = "resizeProgress",	
-RESIZE_COMPLETE  = "resizeComplete",
-
-// Archive Events
-ARCHIVE_START    = "archiveStart",
+RESIZE_START	 = "resizeStart",
+RESIZE_PROGRESS	 = "resizeProgress",	
+RESIZE_COMPLETE	 = "resizeComplete",
+ARCHIVE_START	 = "archiveStart",
 ARCHIVE_PROGRESS = "archiveProgress",
 ARCHIVE_COMPLETE = "archiveComplete",
+UPLOAD_START	 = "uploadStart",	
+UPLOAD_PROGRESS	 = "uploadProgress",
+UPLOAD_RESPONSE	 = "uploadResponse",
+UPLOAD_COMPLETE	 = "uploadComplete",
 
-// Uploading
-UPLOAD_START     = "uploadStart",   
-UPLOAD_PROGRESS  = "uploadProgress",
-UPLOAD_RESPONSE  = "uploadResponse",
-UPLOAD_COMPLETE  = "uploadComplete",
 
 MB = 1024*1024,
 
@@ -128,7 +116,7 @@ Uploader.ATTRS = {
 	},
 
 	/**
-	 * Maximum height of an uploaded image.	By default, uploaded images are not resized.  Set this
+	 * Maximum height of an uploaded image. By default, uploaded images are not resized.  Set this
 	 * value to non-zero to restrict the size of an image.
 	 *
 	 * @attribute resizeHeight
@@ -157,7 +145,7 @@ Uploader.ATTRS = {
 	 * Set the optional archive + compression format.  When set, all files will be archived
 	 * and compressed (depending on the format) into a single file before upload.  Used
 	 * in conjunction with image resizing, upload speed should improve with less bits
-	 * sent over the wire.  Valid values: ('tar', 'tar-bzip2', 'tar-gzip', 'zip', 'zip-uncompressed').
+	 * sent over the wire.	Valid values: ('tar', 'tar-bzip2', 'tar-gzip', 'zip', 'zip-uncompressed').
 	 *
 	 * @attribute archiveFormat
 	 * @type String
@@ -267,13 +255,37 @@ Uploader.ATTRS = {
 	},
 
 	/**
-	 * The localizable strings for the Uploader.
+	 * The localizable strings for the Uploader.  Values in string object include:
+	 * <ul>
+	 * <li>filename</li>
+	 * <li>size</li>
+	 * <li>close</li>
+	 * <li>add_files</li>
+	 * <li>drop files</li>
+	 * <li>upload</li>
+	 * <li>total</li>
+	 * <li>size_b</li>
+	 * <li>size_kb</li>
+	 * <li>size_mb</li>
+	 * <li>size_gb</li>
+	 * <li>size_tb</li>
+	 * <li>resize_progress</li>
+	 * <li>archive_progress</li>
+	 * <li>upload_progress</li>
+	 * <li>upload_complete</li>
+	 * <li>first_text</li>
+	 * <li>bp_download</li>
+	 * <li>bp_installed</li>
+	 * <li>bp_initfail</li>
+	 * <li>bp_incompatible</li>
+	 * <li>bp_requirefail</li>
+	 *</ul>
 	 */
 	strings: {
 		value: {
 			filename:		  "File",
 			size:			  "Size",
-			close:    		  "Close",
+			close:			  "Close",
 			add_files:		  "Add Files...",
 			drop_files:		  "Drop Files",
 			upload:			  "Upload",
@@ -287,7 +299,7 @@ Uploader.ATTRS = {
 			archive_progress: "Compressing Files",
 			upload_progress:  "Uploading Files",
 			upload_complete:  "Upload Complete!",
-			first_text:       "Press Add Files... or Drag and Drop files from your computer to start.",
+			first_text:		  "Press Add Files... or Drag and Drop files from your computer to start.",
 			bp_download: 
 				"Please install <a target=\"blank\" href=\"http://browserplus.yahoo.com/install/\">BrowserPlus</a> to continue.",
 			bp_installed:
@@ -301,6 +313,97 @@ Uploader.ATTRS = {
 		}
 	}
 };
+
+
+// EVENT DOCUMENTATION
+/**
+ * @event fileAdded
+ * @description Fires for each file added through the file dialog or drag and drop.  
+ * preventDefault() prevents file from being added to UI.
+ * @param file {object} the file added via user interaction
+ */
+
+/**
+ * @event fileRemoved
+ * @description Fires for each file user tries to remove.  preventDefault() keeps file in UI.
+ * @param file {object} the file user is trying to remove
+ */
+
+/**
+ * @event filesChanged 
+ * @description Fires after files are added or removed from UI.
+ * @param file {object} the file user is trying to remove
+ */
+
+/**
+ * @event resizeStart
+ * @description Fired after user clicks on Upload button, whether or not there are actually files (images) to resize.
+ * preventDefault cancels upload.
+ * @param files {array} The array of files to be uploaded.
+ */
+
+/**
+ * @event resizeProgress
+ * @description Fired after progress was made actually resizing an image.  Progress is synthesized and only sent
+ * for 0 and 100 percent.
+ * @param file {object} The file being resized
+ * @param progress {object} Object with file and total percent resize progress
+ */
+
+/**
+ * @event resizeComplete
+ * @description Fired when resize is complete.
+ */
+
+/**
+ * @event archiveStart
+ * @description Fired after resize completes, whether or not there are actually files to archive (and compress).
+ * preventDefault cancels upload.
+ * @param files {array} The array of files to be uploaded.  Images files are resized at this point.
+ */
+
+/**
+ * @event archiveProgress
+ * @description Fired as all files are archived and compressed into one.  Progress is real here.
+ * @param file {object} The file being archived
+ * @param progress {object} Object with file and total percent archive progress
+ */
+
+/**
+ * @event archiveComplete
+ * @description Fired when resize is complete.
+ */
+
+/**
+ * @event uploadStart
+ * @description Fired after files are archived, start of actual uploading.
+ * preventDefault cancels upload.
+ * @param files {array} The array of files to be uploaded.
+ */
+
+/**
+ * @event uploadProgress
+ * @description Fired as files are uploaded.  Note that simultaneous uploads occur, so there's not guarantee as
+ * to the order in which progress events occur for each file.
+ * @param file {object} The file being uploaded
+ * @param progress {object} Object with fileSize, fileSent, filePercent, totalSize, totalSent, totalPercent.
+ */
+
+/**
+ * @event uploadResponse
+ * @description Fired at the end of upload for each file.
+ * @param file {object} The file uploaded
+ * @param response {object} Object with a success boolean and data.  Data either contains information
+ * from the server (such as headers, body, statusCode, statusString) or (error, verboseError).
+ */
+
+/**
+ * @event uploadComplete
+ * @description Fired after all files are uploaded.  preventDefault to handle the UI in a different way.
+ * By default, a message is shown and all the files from the list are cleared.
+ */
+
+
 
 /**
  * Markup template used to generate the DOM structure for a file.  A file
@@ -385,7 +488,7 @@ Uploader.BODY_TEMPLATE =
 			'<div class="{message_close}"><a href="#">{str_close}</a></div>'  +
 		'</div>' +
 		'<div style="visibility:hidden" class="{bd_class} {progress_class}">' + 
-    		'<div class="{progress_bar} {progress_bg}"></div>' +
+			'<div class="{progress_bar} {progress_bg}"></div>' +
 			'<div class="{progress_bar} {progress_fg}"></div>' +
 			'<div class="{progress_text}">0%</div>' +
 			'<div class="{progress_close}"><a href="#">{str_close}</a></div>'  +
@@ -396,7 +499,7 @@ Uploader.BODY_TEMPLATE =
  * Map (object) of classNames used to populate the placeholders in the
  * Uploader.BODY_TEMPLATE markup when rendering the Uploader UI.
  *
- * @property Uploader.HEADER_CSS
+ * @property Uploader.BODY_CSS
  * @type Object
  * @static
  */
@@ -405,8 +508,8 @@ Uploader.BODY_CSS = {
 	hover_class	   : getCN(UPLOADER, "hover"),
 	hover_text	   : getCN(UPLOADER, "hover", "text"),
 	filelist_class : getCN(UPLOADER, "filelist"),
-	first_class    : getCN(UPLOADER, "first"),
-	first_text     : getCN(UPLOADER, "first", "text"),
+	first_class	   : getCN(UPLOADER, "first"),
+	first_text	   : getCN(UPLOADER, "first", "text"),
 	message_class  : getCN(UPLOADER, "message"),
 	message_text   : getCN(UPLOADER, "message", "text"),
 	message_close  : getCN(UPLOADER, "message", "close"),
@@ -446,8 +549,8 @@ Uploader.FOOTER_CSS = {
 	ft_button_class : getCN(UPLOADER, FOOTER, "button"),
 	ft_size_class	: getCN(UPLOADER, FOOTER, "size"),
 
-	add_button      : getCN(UPLOADER, "button", "add"),
-	upload_button   : getCN(UPLOADER, "button", "upload"),
+	add_button		: getCN(UPLOADER, "button", "add"),
+	upload_button	: getCN(UPLOADER, "button", "upload"),
 
 	ft_size_label	: getCN(UPLOADER, FOOTER, "size",  LABEL),
 	ft_total_label	: getCN(UPLOADER, FOOTER, "total", LABEL)
@@ -472,8 +575,8 @@ Y.extend(Uploader, Y.Widget, {
 	_firstpane: null,
 	_firsttext: null,
 	
-	_messagepane: null,   // Message Pane
-	_messagetext: null,   // Message displayed to user
+	_messagepane: null,	  // Message Pane
+	_messagetext: null,	  // Message displayed to user
 	_messageclose: null,  // Close Button
 
 	_progresspane: null,
@@ -488,6 +591,8 @@ Y.extend(Uploader, Y.Widget, {
 	
 	/** 
 	 * Convert number of bytes into human readable string (ala "2 MB") 
+	 * @method getFriendlySize
+	 * @param size the size in bytes
 	 */
 	getFriendlySize: function(size) {
 		var i, units = [
@@ -509,8 +614,10 @@ Y.extend(Uploader, Y.Widget, {
 
 	/**
 	 * Calculates the sum total of all file sizes in the given array.
+	 * @method getSize
+	 * @parm files the array of files to calculate the size for
 	 */
-	getTotalSize: function(files) {
+	getSize: function(files) {
 		var i, sum = 0, len=files.length;
 		for (i = 0; i < len; i++) {
 			sum += files[i].size;
@@ -521,8 +628,9 @@ Y.extend(Uploader, Y.Widget, {
 
 	/**
 	 * Clears the list of files queued for upload.
+	 * @method clearFiles
 	 */
-	clearFilelist: function() {
+	clearFiles: function() {
 		var len = this.get("files").length;
 
 		// remove file entries from ui
@@ -536,16 +644,20 @@ Y.extend(Uploader, Y.Widget, {
 	
 	/**
 	 * Disable UI from accepting input (drag+drops, add button pushes, upload button pushes).
+	 * @method disableInput
+	 * @param enabled the boolean state
 	 */
-	disableInput: function(b) {
-		this.set("disabledInput", b);
-		this.enableAddButton(!b);
-		this.enableUploadButton(!b && this.get("files").length > 0);
+	disableInput: function(enabled) {
+		this.set("disabledInput", enabled);
+		this.enableAddButton(!enabled);
+		this.enableUploadButton(!enabled && this.get("files").length > 0);
 	},
 	
 
 	/**
 	 * Set the enabled state of the Add Files button.
+	 * @method enableAddButton
+	 * @param enabled the boolean state
 	 */
 	enableAddButton: function(enabled) {
 		this._addbutton.set("disabled", !enabled);
@@ -553,6 +665,8 @@ Y.extend(Uploader, Y.Widget, {
 
 	/**
 	 * Set the enabled state of the Upload button.
+	 * @method enableUploadButton
+	 * @param enabled the boolean state
 	 */
 	enableUploadButton: function(enabled) {
 		this._uploadbutton.set("disabled", !enabled || this.get("uploadUrl") === null);
@@ -560,6 +674,7 @@ Y.extend(Uploader, Y.Widget, {
 
 	/**
 	 * Disable the Uploader widget.
+	 * @method disable
 	 */
 	disable: function() {
 		Uploader.superclass.disable.call(this);
@@ -568,6 +683,7 @@ Y.extend(Uploader, Y.Widget, {
 
 	/**
 	 * Enable the Uploader widget.
+	 * @method enable
 	 */
 	enable: function() {
 		Uploader.superclass.enable.call(this);
@@ -576,6 +692,8 @@ Y.extend(Uploader, Y.Widget, {
 	
 	/**
 	 * Show the message pane.
+	 * @method showMessage
+	 * @param msg the message to display to the user
 	 */
 	showMessage: function(msg) {
 		this.disableInput(true);
@@ -587,29 +705,10 @@ Y.extend(Uploader, Y.Widget, {
 		this._messagepane.setStyle("visibility", "visible");
 	},
 
-	showFirstMessage: function(msg) {
-		this._showingFirst = true;
-		this._firsttext.setContent(msg);
-		this._firstpane.setStyle("visibility", "visible");
-	},
-
-	hideFirst: function() {
-		this._showingFirst = false;
-		this._firstpane.setStyle("visibility", "hidden");
-	},
-
-	showHover: function() {
-		this._showingHover = true;
-		this._hoverpane.setStyle("visibility", "visible");
-	},
-	
-	hideHover: function() {
-		this._showingHover = false;
-		this._hoverpane.setStyle("visibility", "hidden");
-	},
-
 	/**
-	 * Hide the message pane.
+	 * Hides the message dialog.  Normally, this does not need to be done programmatically,
+	 * as there is a "Close" link on the dialog.
+	 * @method hideMessage
 	 */
 	hideMessage: function() {
 		this.disableInput(false);
@@ -617,7 +716,49 @@ Y.extend(Uploader, Y.Widget, {
 	},
 
 	/**
-	 * Show the progress pane.  This is automatically displayed during the upload process.
+	 * When the Upload widget first appears, shows the strings.first_text message 
+	 * explaining to the user that drag+drop is available too.	Message is automatically
+	 * hidden once the user adds a file.
+	 * @method showFirst
+	 * @param msg the message to display to the user
+	 */
+	showFirst: function(msg) {
+		this._showingFirst = true;
+		this._firsttext.setContent(msg);
+		this._firstpane.setStyle("visibility", "visible");
+	},
+
+	/**
+	 * Hides the first message.	 This is done automatically upon the first user action to add a file.
+	 * @method hideFirst
+	 */
+	hideFirst: function() {
+		this._showingFirst = false;
+		this._firstpane.setStyle("visibility", "hidden");
+	},
+
+	/**
+	 * Shows the hover pane (different color with strings.drop_files message) when user
+	 * is adding files via drag and drop.  This is automatically called.
+	 * @method showHover
+	 */
+	showHover: function() {
+		this._showingHover = true;
+		this._hoverpane.setStyle("visibility", "visible");
+	},
+	
+	/**
+	 * Hides the hover pane.
+	 * @method hideHover
+	 */
+	hideHover: function() {
+		this._showingHover = false;
+		this._hoverpane.setStyle("visibility", "hidden");
+	},
+
+	/**
+	 * Show the progress pane.	This is automatically displayed during the upload process.
+	 * @method showProgress
 	 */
 	showProgress: function() {
 		this.disableInput(true);
@@ -628,7 +769,8 @@ Y.extend(Uploader, Y.Widget, {
 	},
 	
 	/**
-	 * Hide the progress pane.
+	 * Hides the progress pane.
+	 * @method hideProgress
 	 */
 	hideProgress: function() {
 		this.disableInput(false);
@@ -638,15 +780,18 @@ Y.extend(Uploader, Y.Widget, {
 
 	/**
 	 * Set file size in the UI.
+	 * @method setFileSize
+	 * @param files array.	Size is automatically calculated from this array and presented in user friendly way.
 	 */
 	setFileSize: function(files) {
-		this._foot.one("." + Uploader.FOOTER_CSS.ft_size_label).setContent(this.getFriendlySize(this.getTotalSize(files)));
+		this._foot.one("." + Uploader.FOOTER_CSS.ft_size_label).setContent(this.getFriendlySize(this.getSize(files)));
 	},
 	
 
 	/**
 	 * Return index of file indentified by 'id' or return -1.
 	 * @protected
+	 * @method _getFileIndex
 	 */
 	_getFileIndex: function(id) {
 		var i, len, files = this.get("files");
@@ -661,6 +806,7 @@ Y.extend(Uploader, Y.Widget, {
 	/**
 	 * Search through files array and return index of entry with same handle id.
 	 * @protected
+	 * @method _getHandleIndex
 	 */
 	_getHandleIndex: function(handle) {
 		var i, len, files = this.get("files");
@@ -719,6 +865,7 @@ Y.extend(Uploader, Y.Widget, {
 	/** 
 	 * Display just added file in UI 
 	 * @protected
+	 * @method _fileAddedListener
 	 */
 	_fileAddedListener: function(e) {
 		// remember file
@@ -739,6 +886,7 @@ Y.extend(Uploader, Y.Widget, {
 	/**
 	 * Actually remove file from UI and files array.
 	 * @protected
+	 * @method _fileRemovedListener
 	 */
 	_fileRemovedListener: function(e) {
 		var index = this._getFileIndex(e.file.id);
@@ -752,6 +900,7 @@ Y.extend(Uploader, Y.Widget, {
 	/**
 	 * Update buttons enabled status and file size label after files are added/removed from UI.
 	 * @protected
+	 * @method _filesChangedListener
 	 */
 	_filesChangedListener: function() {
 		// disable upload button when there are no files
@@ -766,6 +915,7 @@ Y.extend(Uploader, Y.Widget, {
 	/**
 	 * Displays percentage complete for following: resizeProgress, archiveProgress, uploadProgress
 	 * @protected
+	 * @method _progressListener
 	 */
 	_progressListener: function(e) {
 		var p = e.progress.totalPercent, type = e.type, msg = this._progressStrings[type];
@@ -775,15 +925,16 @@ Y.extend(Uploader, Y.Widget, {
 	},
 
 	/**
-	 * Upload is complete.  Show "Upload complete" in progress dialog, which
+	 * Upload is complete.	Show "Upload complete" in progress dialog, which
 	 * user has to dismiss.
 	 * @protected
+	 * @method _uploadStepComplete
 	 */
-	_uploadCompleteListener: function(e) {
+	_uploadStepComplete: function(e) {
 		// when upload is complete, show user "Upload Complete" message and
-		// show "Close" button.  User presses "Close" and hideProgress shows.
+		// show "Close" button.	 User presses "Close" and hideProgress shows.
 		
-		this.clearFilelist();
+		this.clearFiles();
 		this._progresstext.setContent(this.get("strings.upload_complete"));
 		this._progressclose.setStyle("visibility", "visible");
 	},
@@ -792,6 +943,7 @@ Y.extend(Uploader, Y.Widget, {
 	/** 
 	 * User clicked Add Files... YAHOO.bp.OpenBrowseDialog called.
 	 * @protected
+	 * @method _openFileDialog
 	 */
 	_openFileDialog: function(e) {
 		if (this.get("disabledInput")) {return;}
@@ -812,6 +964,7 @@ Y.extend(Uploader, Y.Widget, {
 	 * Returns true if file's mimetype matches a known image mime type (matches
 	 * image/gif, image/jpeg, image/pjpeg, image/png)
 	 * @protected
+	 * @method _isImage
 	 */
 	_isImage: function(f) {
 		var i;
@@ -831,10 +984,11 @@ Y.extend(Uploader, Y.Widget, {
 	},
 	
 	/**
-	 * Step 1:  User clicks on Upload button.
+	 * Step 1:	User clicks on Upload button.
 	 * @protected
+	 * @method _uploadStepButtonClicked
 	 */
-	_uploadButtonClicked: function(e) {
+	_uploadStepButtonClicked: function(e) {
 		//Y.log("STEP 1: uploadButtonClicked");
 		this.fire(RESIZE_START, {files: this.get("files") });
 	},
@@ -842,8 +996,9 @@ Y.extend(Uploader, Y.Widget, {
 	/**
 	 * Step 2: Resize Images, if needed.
 	 * @protected
+	 * @method _uploadStepResizeImages
 	 */
-	_uploadResizeImages: function(e) {
+	_uploadStepResizeImages: function(e) {
 		var i, files = e.files, numfiles = files.length, filesToUpload = [], 
 			that = this,
 			resizeDone,			// inner func
@@ -928,8 +1083,9 @@ Y.extend(Uploader, Y.Widget, {
 	/**
 	 * Step 3: Archive (and compress) files, if needed.
 	 * @protected
+	 * @method _uploadStepArchiveFiles
 	 */
-	_uploadArchiveFiles: function(e) {
+	_uploadStepArchiveFiles: function(e) {
 		var that = this, files = e.files, archiveFormat = this.get("archiveFormat");
 
 		//Y.log("STEP 3: uploadArchiveFiles");
@@ -939,7 +1095,7 @@ Y.extend(Uploader, Y.Widget, {
 				{
 					files:	files,
 					format: archiveFormat,
-					progressCallback: function(v) {	
+					progressCallback: function(v) { 
 						that.fire(ARCHIVE_PROGRESS, { 
 							progress: {filePercent: v.percent, totalPercent: v.percent }
 						});
@@ -960,8 +1116,9 @@ Y.extend(Uploader, Y.Widget, {
 	/**
 	 * Step 4: Files are process (images resized, files compressed).  Start the upload.
 	 * @protected
+	 * @method _uploadStepStart
 	 */
-	_uploadStart: function(e) {
+	_uploadStepStart: function(e) {
 		var i, files = e.files, numfiles = files.length, 
 			filesUploaded = 0,
 			totalBytesToUpload = 0,
@@ -979,7 +1136,7 @@ Y.extend(Uploader, Y.Widget, {
 
 		// calculate number of bytes to upload and create object to keep track of
 		// number of bytes uploaded for each file
-		totalBytesToUpload = this.getTotalSize(files);
+		totalBytesToUpload = this.getSize(files);
 
 		for (i = 0; i < numfiles; i++) {
 			byteCounter["id"+files[i].BrowserPlusHandleID] = 0;
@@ -1024,7 +1181,7 @@ Y.extend(Uploader, Y.Widget, {
 			params.files = fp;
 			params.timeout = timeout;
 			params.progressCallback = progressCallback(file);
-			if (vars)   { params.postvars = vars; }
+			if (vars)	{ params.postvars = vars; }
 			if (cookie) { params.cookies = cookie; }
 
 			YAHOO.bp.Uploader.upload(params, function(r) {
@@ -1044,7 +1201,7 @@ Y.extend(Uploader, Y.Widget, {
 					};
 				}
 
-				that.fire(UPLOAD_RESPONSE, {response: data});
+				that.fire(UPLOAD_RESPONSE, {response: {success: r.success, data: data} });
 
 				if (++filesUploaded == numfiles) {
 					that.fire(UPLOAD_COMPLETE);
@@ -1061,6 +1218,7 @@ Y.extend(Uploader, Y.Widget, {
 	/**
 	 * Return the nearest ancestor (including the given node) with the specified className.
 	 * @protected
+	 * @method _getNodeOrAncestorWithClass
 	 */
 	_getNodeOrAncestorWithClass: function(node, cn) {
 		if (node.get("className") === cn) {
@@ -1073,6 +1231,7 @@ Y.extend(Uploader, Y.Widget, {
 	/** 
 	 * User clicked in uploader body - see if click is on delete button.
 	 * @protected
+	 * @method _fileClickEvent
 	 */
 	_fileClickEvent: function(e) {
 		if (this.get("disabledInput")) {return;}
@@ -1098,41 +1257,41 @@ Y.extend(Uploader, Y.Widget, {
 	},
 
 	/**
-     * Initializer lifecycle implementation for the Uploader class. Publishes events,
-     * initializes internal properties and subscribes for events.
-     *
-     * @method initializer
-     * @protected
-     */
+	 * Initializer lifecycle implementation for the Uploader class. Publishes events,
+	 * initializes internal properties and subscribes for events.
+	 *
+	 * @protected
+	 * @method initializer
+	 */
 	initializer: function(cfg){
 
 		// Config Options for publish:
-		//    http://developer.yahoo.com/yui/3/api/EventTarget.html
-		this.publish(FILE_ADDED,       {defaultFn: this._fileAddedListener});     // file(s) added thru D+D or File Dialog
-		this.publish(FILE_REMOVED,     {defaultFn: this._fileRemovedListener});   // file removed
-		this.publish(FILES_CHANGED,    {preventable: false, defaultFn: this._filesChangedListener}); // file(s) added or removed
+		//	  http://developer.yahoo.com/yui/3/api/EventTarget.html
+		this.publish(FILE_ADDED,	   {defaultFn: this._fileAddedListener});	  // file(s) added thru D+D or File Dialog
+		this.publish(FILE_REMOVED,	   {defaultFn: this._fileRemovedListener});	  // file removed
+		this.publish(FILES_CHANGED,	   {preventable: false, defaultFn: this._filesChangedListener}); // file(s) added or removed
 
-		this.publish(RESIZE_START,     {defaultFn: this._uploadResizeImages}); 
+		this.publish(RESIZE_START,	   {defaultFn: this._uploadStepResizeImages}); 
 		this.publish(RESIZE_PROGRESS,  {preventable: false, defaultFn: this._progressListener}); 
-		this.publish(RESIZE_COMPLETE);
+		this.publish(RESIZE_COMPLETE,  {preventable: false});
 		
-		this.publish(ARCHIVE_START,    {defaultFn: this._uploadArchiveFiles, preventedFn: this.hideProgress});
+		this.publish(ARCHIVE_START,	   {defaultFn: this._uploadStepArchiveFiles, preventedFn: this.hideProgress});
 		this.publish(ARCHIVE_PROGRESS, {preventable: false, defaultFn: this._progressListener});
-		this.publish(ARCHIVE_COMPLETE);
+		this.publish(ARCHIVE_COMPLETE, {preventable: false});
 
-		this.publish(UPLOAD_START,     {defaultFn: this._uploadStart, preventedFn: this.hideProgress});
+		this.publish(UPLOAD_START,	   {defaultFn: this._uploadStepStart, preventedFn: this.hideProgress});
 		this.publish(UPLOAD_PROGRESS,  {preventable: false, defaultFn: this._progressListener});
 		this.publish(UPLOAD_RESPONSE,  {preventable: false});
-		this.publish(UPLOAD_COMPLETE,  {preventable: false, defaultFn: this._uploadCompleteListener});
+		this.publish(UPLOAD_COMPLETE,  {defaultFn: this._uploadStepComplete});
 	},
 			  
-    /**
-     * Destructor lifecycle implementation for the Uploader class.
-     * Removes and destroys all registered items.
-     *
-     * @method destructor
-     * @protected
-     */
+	/**
+	 * Destructor lifecycle implementation for the Uploader class.
+	 * Removes and destroys all registered items.
+	 *
+	 * @method destructor
+	 * @protected
+	 */
 	destructor: function() {
 		this._contentBox = null;
 		this._body = null;
@@ -1152,12 +1311,12 @@ Y.extend(Uploader, Y.Widget, {
 		this._progressStrings = null;
 	},
 	
-    /**
-     * Creates UI found in Uploader's <code>contentBox</code>.
-     *
-     * @method renderUI
-     * @protected
-     */
+	/**
+	 * Creates UI found in Uploader's <code>contentBox</code>.
+	 *
+	 * @method renderUI
+	 * @protected
+	 */
 	renderUI: function(){
 		// this widget's outer most box
 		this._contentBox = this.get(CONTENT_BOX);
@@ -1196,29 +1355,29 @@ Y.extend(Uploader, Y.Widget, {
 			css = Y.merge(Uploader.BODY_CSS, { 
 				filelist_id	   : id ,
 				str_drop_files : this.get('strings.drop_files'),
-				str_close      : this.get("strings.close")
+				str_close	   : this.get("strings.close")
 			});
 
 		this._body = Y.Node.create(Y.substitute(Uploader.BODY_TEMPLATE, css));
 		this._contentBox.appendChild(this._body);
 
-		this._filelist      = this._body.one("." + css.filelist_class);
-		this._hoverpane     = this._body.one("." + css.hover_class);
-		this._firstpane     = this._body.one("." + css.first_class);
-		this._firsttext     = this._body.one("." + css.first_text);
-		this._messagepane   = this._body.one("." + css.message_class);
-		this._messagetext   = this._body.one("." + css.message_text);
-		this._messageclose  = this._body.one("." + css.message_close);
-		this._progresspane  = this._body.one("." + css.progress_class);
-		this._progressbar   = this._body.one("." + css.progress_fg);
-		this._progresstext  = this._body.one("." + css.progress_text);
+		this._filelist		= this._body.one("." + css.filelist_class);
+		this._hoverpane		= this._body.one("." + css.hover_class);
+		this._firstpane		= this._body.one("." + css.first_class);
+		this._firsttext		= this._body.one("." + css.first_text);
+		this._messagepane	= this._body.one("." + css.message_class);
+		this._messagetext	= this._body.one("." + css.message_text);
+		this._messageclose	= this._body.one("." + css.message_close);
+		this._progresspane	= this._body.one("." + css.progress_class);
+		this._progressbar	= this._body.one("." + css.progress_fg);
+		this._progresstext	= this._body.one("." + css.progress_text);
 		this._progressclose = this._body.one("." + css.progress_close);
 
 		// link event names to names used in progress pane
 		this._progressStrings = {
-			"uploader:resizeProgress":  this.get("strings.resize_progress"),
+			"uploader:resizeProgress":	this.get("strings.resize_progress"),
 			"uploader:archiveProgress": this.get("strings.archive_progress"),
-			"uploader:uploadProgress":  this.get("strings.upload_progress")
+			"uploader:uploadProgress":	this.get("strings.upload_progress")
 		};
 	},
 
@@ -1239,7 +1398,7 @@ Y.extend(Uploader, Y.Widget, {
 		this._foot = Y.Node.create(Y.substitute(Uploader.FOOTER_TEMPLATE, css));
 		this._contentBox.appendChild(this._foot);
 
-		this._addbutton    = this._foot.one("." + css.add_button);
+		this._addbutton	   = this._foot.one("." + css.add_button);
 		this._uploadbutton = this._foot.one("." + css.upload_button);
 	},
 
@@ -1254,7 +1413,7 @@ Y.extend(Uploader, Y.Widget, {
 
 		// User clicks on "Add Files" or "Upload" button
 		this._addbutton.on("click", this._openFileDialog, this);
-		this._uploadbutton.on("click", this._uploadButtonClicked, this);
+		this._uploadbutton.on("click", this._uploadStepButtonClicked, this);
 		this._messageclose.on("click", this.hideMessage, this);
 		this._progressclose.on("click", this.hideProgress, this);
 
@@ -1262,7 +1421,7 @@ Y.extend(Uploader, Y.Widget, {
 		this._filelist.on("click", this._fileClickEvent, this);
 
 		// show the initial message ("Press Add Files or Drag and Drop")
-		this.showFirstMessage(this.get("strings.first_text"));
+		this.showFirst(this.get("strings.first_text"));
 
 		YAHOO.bp.DragAndDrop.AddDropTarget({ id: id}, function (r) {
 
@@ -1291,6 +1450,11 @@ Y.extend(Uploader, Y.Widget, {
 		});
 	},
 
+	/**
+	 * Calls BrowserPlus require.
+ 	 * @protected
+	 * @method _requireServices
+	 */
 	_requireServices: function() {
 		var that = this;
 		YAHOO.bp.require({services: SERVICES}, function(require) {
@@ -1306,9 +1470,9 @@ Y.extend(Uploader, Y.Widget, {
 	
 
 	/**
-	 * Initialize BrowserPlus.  Once BrowserPlus is ready, _binder takes care of the rest.
-	 * @method bindUI
+	 * Initialize BrowserPlus.	Once BrowserPlus is ready, _binder takes care of the rest.
 	 * @protected
+	 * @method bindUI
 	 */
 	bindUI: function(){
 		var that = this;
@@ -1338,16 +1502,7 @@ Y.extend(Uploader, Y.Widget, {
 				}
 			}
 		});
-	},
-
-	
-	/**
-	 * Uploader is ready for input.
-	 * @protected
-	 */
-	syncUI: function() {
 	}
-
 });
 
 Y.Base.build(Uploader.NAME, Uploader, {dynamic:false});
