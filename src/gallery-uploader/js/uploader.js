@@ -479,7 +479,7 @@ Uploader.BODY_TEMPLATE =
 		'<div style="visibility:hidden" class="{bd_class} {hover_class}">' + 
 			'<div class="{hover_text}">{str_drop_files}</div>' + 
 		'</div>' +
-		'<div id="{filelist_id}" class="{bd_class} {filelist_class}"></div>'+ 
+		'<div class="{bd_class} {filelist_class}"></div>'+ 
 		'<div style="visibility:visible" class="{bd_class} {first_class}">' +
 			'<div class="{first_text}"></div>' + 
 		'</div>' +
@@ -690,6 +690,17 @@ Y.extend(Uploader, Y.Widget, {
 		this.disableInput(false);
 	},
 	
+	setPaneSize: function(pane) {
+		var h, w;
+
+		if (Y.UA.ie === 6) {
+			h = (parseInt(this.get("height"), 10) - 52) + "px";
+			w = (parseInt(this.get("width"), 10)) + "px";
+			pane.setStyle("height", h);
+			pane.setStyle("width", w);
+		}
+	},
+
 	/**
 	 * Show the message pane.
 	 * @method showMessage
@@ -698,6 +709,8 @@ Y.extend(Uploader, Y.Widget, {
 	showMessage: function(msg) {
 		this.disableInput(true);
 		this._messagetext.setContent(msg);
+
+		this.setPaneSize(this._messagepane);
 
 		// hide progress just in case
 		this._progressclose.setStyle("visibility", "hidden");
@@ -762,6 +775,7 @@ Y.extend(Uploader, Y.Widget, {
 	 */
 	showProgress: function() {
 		this.disableInput(true);
+		this.setPaneSize(this._progresspane);
 		this._progresstext.setContent("&nbsp;");
 		this._progressbar.setStyle("width", "0%");
 		this._progressclose.setStyle("visibility", "hidden");
@@ -1351,9 +1365,7 @@ Y.extend(Uploader, Y.Widget, {
 	 * @protected
 	 */
 	_initBody : function () {
-		var id = Y.guid(),
-			css = Y.merge(Uploader.BODY_CSS, { 
-				filelist_id	   : id ,
+		var css = Y.merge(Uploader.BODY_CSS, { 
 				str_drop_files : this.get('strings.drop_files'),
 				str_close	   : this.get("strings.close")
 			});
