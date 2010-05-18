@@ -273,7 +273,6 @@ Uploader.ATTRS = {
 	 * <li>archive_progress</li>
 	 * <li>upload_progress</li>
 	 * <li>upload_complete</li>
-	 * <li>first_text</li>
 	 * <li>bp_download</li>
 	 * <li>bp_installed</li>
 	 * <li>bp_initfail</li>
@@ -299,7 +298,6 @@ Uploader.ATTRS = {
 			archive_progress: "Compressing Files",
 			upload_progress:  "Uploading Files",
 			upload_complete:  "Upload Complete!",
-			first_text:		  "Press Add Files... or Drag and Drop files from your computer to start.",
 			bp_download: 
 				"Please install <a target=\"blank\" href=\"http://browserplus.yahoo.com/install/\">BrowserPlus</a> to continue.",
 			bp_installed:
@@ -479,10 +477,7 @@ Uploader.BODY_TEMPLATE =
 		'<div style="visibility:hidden" class="{bd_class} {hover_class}">' + 
 			'<div class="{hover_text}">{str_drop_files}</div>' + 
 		'</div>' +
-		'<div class="{bd_class} {filelist_class}"></div>'+ 
-		'<div style="visibility:visible" class="{bd_class} {first_class}">' +
-			'<div class="{first_text}"></div>' + 
-		'</div>' +
+		'<div id="{filelist_id}" class="{bd_class} {filelist_class}"></div>'+ 
 		'<div style="visibility:hidden" class="{bd_class} {message_class}">' +
 			'<div class="{message_text}"></div>'  +
 			'<div class="{message_close}"><a href="#">{str_close}</a></div>'  +
@@ -508,8 +503,6 @@ Uploader.BODY_CSS = {
 	hover_class	   : getCN(UPLOADER, "hover"),
 	hover_text	   : getCN(UPLOADER, "hover", "text"),
 	filelist_class : getCN(UPLOADER, "filelist"),
-	first_class	   : getCN(UPLOADER, "first"),
-	first_text	   : getCN(UPLOADER, "first", "text"),
 	message_class  : getCN(UPLOADER, "message"),
 	message_text   : getCN(UPLOADER, "message", "text"),
 	message_close  : getCN(UPLOADER, "message", "close"),
@@ -570,10 +563,6 @@ Y.extend(Uploader, Y.Widget, {
 
 	_hoverpane: null,
 	_showingHover: false,
-	_showingFirst: false,
-	
-	_firstpane: null,
-	_firsttext: null,
 	
 	_messagepane: null,	  // Message Pane
 	_messagetext: null,	  // Message displayed to user
@@ -690,6 +679,11 @@ Y.extend(Uploader, Y.Widget, {
 		this.disableInput(false);
 	},
 	
+	/**
+	 * Set the width/height explicitly for IE6.
+	 * @method setPaneSize
+	 * @param node the node to be sized
+	 */
 	setPaneSize: function(pane) {
 		var h, w;
 
@@ -726,28 +720,6 @@ Y.extend(Uploader, Y.Widget, {
 	hideMessage: function() {
 		this.disableInput(false);
 		this._messagepane.setStyle("visibility", "hidden");
-	},
-
-	/**
-	 * When the Upload widget first appears, shows the strings.first_text message 
-	 * explaining to the user that drag+drop is available too.	Message is automatically
-	 * hidden once the user adds a file.
-	 * @method showFirst
-	 * @param msg the message to display to the user
-	 */
-	showFirst: function(msg) {
-		this._showingFirst = true;
-		this._firsttext.setContent(msg);
-		this._firstpane.setStyle("visibility", "visible");
-	},
-
-	/**
-	 * Hides the first message.	 This is done automatically upon the first user action to add a file.
-	 * @method hideFirst
-	 */
-	hideFirst: function() {
-		this._showingFirst = false;
-		this._firstpane.setStyle("visibility", "hidden");
 	},
 
 	/**
@@ -962,10 +934,6 @@ Y.extend(Uploader, Y.Widget, {
 	_openFileDialog: function(e) {
 		if (this.get("disabledInput")) {return;}
 		var that = this;
-
-		if (this._showingFirst) {
-			this.hideFirst();
-		}
 
 		YAHOO.bp.FileBrowse.OpenBrowseDialog({}, function(r) {
 			if (r.success) {
@@ -1312,8 +1280,6 @@ Y.extend(Uploader, Y.Widget, {
 		this._foot = null;
 		this._filelist = null;
 		this._hoverpane = null;
-		this._firstpane = null;
-		this._firsttext = null;
 		this._messagepane = null;
 		this._messagetext = null;
 		this._messageclose = null;
@@ -1338,6 +1304,7 @@ Y.extend(Uploader, Y.Widget, {
 		this._initHead();
 		this._initBody();
 		this._initFoot();
+		this.setPaneSize(this._filelist);
 	},
 
 	/**
@@ -1365,7 +1332,9 @@ Y.extend(Uploader, Y.Widget, {
 	 * @protected
 	 */
 	_initBody : function () {
-		var css = Y.merge(Uploader.BODY_CSS, { 
+		var id = Y.guid(),
+			css = Y.merge(Uploader.BODY_CSS, {
+				filelist_id    : id,
 				str_drop_files : this.get('strings.drop_files'),
 				str_close	   : this.get("strings.close")
 			});
@@ -1375,8 +1344,6 @@ Y.extend(Uploader, Y.Widget, {
 
 		this._filelist		= this._body.one("." + css.filelist_class);
 		this._hoverpane		= this._body.one("." + css.hover_class);
-		this._firstpane		= this._body.one("." + css.first_class);
-		this._firsttext		= this._body.one("." + css.first_text);
 		this._messagepane	= this._body.one("." + css.message_class);
 		this._messagetext	= this._body.one("." + css.message_text);
 		this._messageclose	= this._body.one("." + css.message_close);
@@ -1432,18 +1399,12 @@ Y.extend(Uploader, Y.Widget, {
 		// Use clicks in filelist are (click on trashcan icon to remove file)
 		this._filelist.on("click", this._fileClickEvent, this);
 
-		// show the initial message ("Press Add Files or Drag and Drop")
-		this.showFirst(this.get("strings.first_text"));
-
 		YAHOO.bp.DragAndDrop.AddDropTarget({ id: id}, function (r) {
 
 			if (!r.success) { return; }
 			YAHOO.bp.DragAndDrop.AttachCallbacks({id: id, 
 				hover: function(hovering) {
 					if (that.get("disabledInput")) {return;}
-
-					// hide the "first" message
-					if (that._showingFirst) { that.hideFirst();}
 
 					// some logic so visibility property doesn't get set more than once
 					if (hovering && !that._showingHover) {
